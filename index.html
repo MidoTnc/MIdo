@@ -436,7 +436,8 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
   const allTx=ps.reduce((a,p)=>a+cP(p).tx,0);
   const allAc=ps.reduce((a,p)=>{const rows=p.acl||[];return a+rows.reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);},0);
   const profit=allBase-allTx-allLb-allAc;
-  const rate=allBase>0?Math.round((1-((allTx+allLb+allAc)/allBase))*100):0;
+  const allExp=ps.reduce((a,p)=>a+cP(p).exp,0);
+  const rate=allExp>0?Math.round(((allExp-allAc)/allExp)*100):0;
 
   const addRow=(pid)=>{const p=ps.find(x=>x.id===pid);if(!p)return;oc({...p,acl:[...(p.acl||[]),mkCRow()]});};
   const upRow=(pid,ri,row)=>{const p=ps.find(x=>x.id===pid);if(!p)return;const a=[...(p.acl||[])];a[ri]=row;oc({...p,acl:a});};
@@ -447,7 +448,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
     <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>비용 / 수익 관리</div>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:8,marginBottom:16}}>
       {[{l:"기준금액",v:fmt(allBase),c:C.ac},{l:"세금",v:fmt(allTx),c:C.rt},{l:"인건비",v:fmt(allLb),c:C.gt},{l:"현장경비",v:fmt(allAc),c:"#d97706"},
-        {l:"수익",v:fmt(profit),c:profit>=0?C.gt:C.rt,bg:profit>=0?C.gn:C.rd},{l:"여유율",v:`${rate}%`,c:rate>=20?C.gt:rate>=0?C.ot:C.rt}
+        {l:"수익",v:fmt(profit),c:profit>=0?C.gt:C.rt,bg:profit>=0?C.gn:C.rd},{l:"경비여유",v:`${rate}%`,c:rate>=20?C.gt:rate>=0?C.ot:C.rt}
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
@@ -458,7 +459,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
         const c=cP(p);const rows=p.acl||[];const open=openId===p.id;
         const catTotals=COST_CATS.map((_,ci)=>rows.reduce((s,r)=>s+((r.cats||[])[ci]||0),0));
         const realTotal=catTotals.reduce((a,v)=>a+v,0);
-        const pf=c.b-c.tx-c.tl-realTotal;const pRate=c.b>0?Math.round((1-((c.tx+c.tl+realTotal)/c.b))*100):0;
+        const pf=c.b-c.tx-c.tl-realTotal;const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
         return (
           <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
             {/* 현장 헤더 (클릭으로 열고닫기) */}
