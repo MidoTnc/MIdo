@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2d5016">
+<meta name="application-name" content="미도T&amp;C">
+<meta name="apple-mobile-web-app-title" content="미도T&amp;C">
+<title>미도T&amp;C 현장 경비 관리</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/icon-180.png">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased;}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}
+input[type=number]{-moz-appearance:textfield;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}
+table{table-layout:auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const storage={
+  async get(k){const v=localStorage.getItem(k);return v!==null?{value:v}:null;},
+  async set(k,v){localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));return true;}
+};
+const{useState,useEffect,useRef}=React;
+
+
+
+const SK = "mido-v11", FK = "mido-fb";
+const DM = ["김진휘","정창용","김민준","이은석","김태완","정민용","이재호"];
+const ST = [{k:"estimate",l:"견적완료",c:"#9333ea"},{k:"contract",l:"계약완료",c:"#2563eb"},{k:"report",l:"보고서납품",c:"#d97706"},{k:"invoice",l:"계산서발행",c:"#059669"}];
+const MO = [3,4,5,6,7,8,9,10,11,12];
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const cm = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+const fmt = n => `₩${Math.round(n).toLocaleString()}`;
+function useM(bp=768){const[m,s]=useState(window.innerWidth<bp);useEffect(()=>{const h=()=>s(window.innerWidth<bp);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[bp]);return m;}
+
+const mkR=()=>({id:uid(),vn:"",sl:"",el:"",slt:0,slg:0,elt:0,elg:0,dk:0,tw:0,tm:0,fp:1650,fe:11.0});
+const mkS=()=>({id:uid(),sd:"",ed:"",ct:"",dn:false});
+const mkP=()=>({id:uid(),nm:"",cl:"",ea:0,ca:0,rt:70,tx:20,tt:"출장",wc:70000,rc:15000,rd:0,rp:1,wd:0,rtd:0,trips:1,ps:3,pm:cm(),
+  routes:[mkR()],mb:Object.fromEntries(DM.map(n=>[n,0])),md:Object.fromEntries(DM.map(n=>[n,0])),
+  st:{},col:0,memo:"",mc:0,pc:0,prc:0,etc:0,sch:[],acl:[]});
+
+function cR(r,t){const e=r.fe||11;if(!r.dk||e<=0)return{f:0,t:0,tt:0};const f=(r.dk*2/e)*r.fp,tl=r.tw*2;return{f:Math.round(f*t),t:Math.round(tl*t),tt:Math.round((f+tl)*t)};}
+function cP(p){
+  const b=p.ca*(p.rt/100),ac=p.wd*p.wc*p.ps+p.rtd*p.rc*p.ps,rv=p.rd*150000*p.rp;
+  let vh=0;(p.routes||[]).forEach(r=>{vh+=cR(r,p.trips).tt;});
+  const ex=(p.mc||0)+(p.pc||0)+(p.prc||0)+(p.etc||0),exp=ac+vh+rv+ex;
+  const tx=b*((p.tx??20)/100),lb=b-exp-tx;
+  const ma={};let tl=0;Object.entries(p.mb||{}).forEach(([n,pc])=>{const a=Math.round(lb*(pc/100));ma[n]=a;tl+=a;});
+  return{b,ac,rv,vh,ex,exp,tx,lb,ma,rm:lb-tl,tl};
+}
+
+const KAKAO_REST_KEY="0506d4ef920df13abc4158c35790fe5f";
+async function kakaoDirections(sLat,sLng,eLat,eLng){
+  try{
+    const r=await fetch(`https://apis-navi.kakaomobility.com/v1/directions?origin=${sLng},${sLat}&destination=${eLng},${eLat}&priority=RECOMMEND`,
+      {headers:{Authorization:`KakaoAK ${KAKAO_REST_KEY}`,"Content-Type":"application/json"}});
+    const d=await r.json();
+    if(d.routes&&d.routes[0]&&d.routes[0].summary){
+      const s=d.routes[0].summary;
+      return{dk:Math.round(s.distance/1000),tm:Math.round(s.duration/60),tw:s.fare?.toll||0};
+    }
+    return null;
+  }catch(e){console.error("directions error:",e);return null;}
+}
+async function kakaoSearch(query){
+  try{
+    const[kwRes,adRes]=await Promise.all([
+      fetch(`https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=4`,{headers:{Authorization:`KakaoAK ${KAKAO_REST_KEY}`}}),
+      fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(query)}&size=3`,{headers:{Authorization:`KakaoAK ${KAKAO_REST_KEY}`}})
+    ]);
+    const kw=await kwRes.json(),ad=await adRes.json();
+    const places=(kw.documents||[]).map(p=>({nm:p.place_name,addr:p.road_address_name||p.address_name,lat:parseFloat(p.y),lng:parseFloat(p.x),type:"place"}));
+    const addrs=(ad.documents||[]).map(a=>({nm:a.road_address?a.road_address.address_name:a.address_name,addr:a.address?a.address.address_name:"",lat:parseFloat(a.y),lng:parseFloat(a.x),type:"addr"}));
+    const seen=new Set();const merged=[];
+    [...addrs,...places].forEach(r=>{const k=`${r.lat},${r.lng}`;if(!seen.has(k)){seen.add(k);merged.push(r);}});
+    return merged.slice(0,6);
+  }catch(e){console.error("search error:",e);return[];}
+}
+
+const C={bg:"#f4f3ee",w:"#fff",bd:"#d0d0c8",bdd:"#a0a098",hd:"#e8e6dd",hd2:"#f0eee6",yl:"#fff9d6",
+  gn:"#e6f4ea",gt:"#1a7431",rd:"#fde8e8",rt:"#c53030",bl:"#e8f0fe",bt:"#1a56db",bb:"#dbeafe",
+  og:"#fff3e0",ot:"#c75300",tx:"#1a1a1a",td:"#666",tm:"#999",ac:"#2d5016"};
+/* Font scale: PC / Mobile */
+const F={title:[17,14],page:[18,16],sec:[12,11],label:[10,10],val:[16,14],th:[11,11],td:[12,12],tdb:[13,12],btn:[12,11],btnS:[11,10],badge:[11,10],muted:[11,10],inp:[12,12]};
+const cl={p:"6px 10px",b:`1px solid ${C.bd}`,f:12,va:"middle"};
+const ce={padding:cl.p,border:cl.b,fontSize:cl.f,verticalAlign:cl.va};
+const cL={...ce,background:C.hd,fontWeight:600,whiteSpace:"nowrap"};
+const cV={...ce,background:C.w,textAlign:"right"};
+const cI={...ce,background:C.yl,padding:0};
+const ip={width:"100%",border:"none",background:"transparent",padding:"6px 10px",fontSize:12,textAlign:"right",outline:"none",boxSizing:"border-box"};
+
+function NI({value:v,onChange:o,style:s,step:st}){return <input type="number"step={st}value={v||""}placeholder="0"onChange={e=>o(Number(e.target.value)||0)}style={{...ip,...s}}/>;}
+function TI({value:v,onChange:o,placeholder:p,style:s}){return <input type="text"value={v}placeholder={p}onChange={e=>o(e.target.value)}style={{...ip,textAlign:"left",...s}}/>;}
+function Bn({children:ch,onClick:o,bg,color:c,disabled:d,small:sm,style:s}){
+  return <button disabled={d}onClick={e=>{e.stopPropagation();o?.();}}style={{background:bg||C.ac,color:c||"#fff",border:"none",borderRadius:3,padding:sm?"2px 8px":"5px 14px",fontSize:sm?10:12,fontWeight:600,cursor:d?"not-allowed":"pointer",opacity:d?0.5:1,whiteSpace:"nowrap",...s}}>{ch}</button>;
+}
+function SB({checked:ck,label:l,color:c,onClick:o}){
+  return <div onClick={e=>{e.stopPropagation();o();}}style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:99,background:ck?c+"18":"#f0f0f0",border:`1.5px solid ${ck?c:"#ddd"}`,cursor:"pointer",userSelect:"none"}}>
+    <span style={{width:14,height:14,borderRadius:3,border:`2px solid ${ck?c:"#ccc"}`,background:ck?c:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:800}}>{ck?"✓":""}</span>
+    <span style={{fontSize:11,fontWeight:600,color:ck?c:"#999"}}>{l}</span></div>;
+}
+function FR({label:l,children:ch}){return <tr><td style={cL}>{l}</td><td style={cI}>{ch}</td></tr>;}
+function Sec({title:t,children:ch,extra:ex,open:df=true}){const[o,s]=useState(df);return(
+  <div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflow:"hidden",marginBottom:10}}>
+    <div onClick={()=>s(!o)}style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+      <span>{o?"▼":"▶"} {t}</span>{ex}</div>{o&&ch}</div>);}
+
+/* ── Place Search (카카오 REST API) ── */
+function PlaceSearch({value,onSelect,placeholder}){
+  const[q,sq]=useState(value);const[rs,srs]=useState([]);const[show,sshow]=useState(false);
+  useEffect(()=>{sq(value);},[value]);
+  const timer=useRef(null);
+  const search=(v)=>{sq(v);if(v.length<2){srs([]);sshow(false);return;}
+    clearTimeout(timer.current);
+    timer.current=setTimeout(async()=>{
+      try{const results=await kakaoSearch(v);srs(results);sshow(results.length>0);}
+      catch(e){console.error("search error:",e);srs([]);sshow(false);}
+    },300);};
+  const pick=(r)=>{console.log("PICK:",r.nm,r.lat,r.lng);sq(r.nm);srs([]);sshow(false);onSelect(r.nm,r.lat,r.lng);};
+  return (<div style={{position:"relative",flex:1}}>
+    <input value={q} onChange={e=>search(e.target.value)} onFocus={()=>{if(rs.length)sshow(true);}} onBlur={()=>setTimeout(()=>sshow(false),200)} placeholder={placeholder}
+      style={{...ip,textAlign:"left",width:"100%"}}/>
+    {show&&rs.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,boxShadow:"0 4px 12px rgba(0,0,0,0.15)",zIndex:100,maxHeight:220,overflowY:"auto"}}>
+      {rs.map((r,i)=><div key={i} onMouseDown={e=>e.preventDefault()} onClick={()=>pick(r)} style={{padding:"8px 10px",cursor:"pointer",borderBottom:`1px solid ${C.bd}`,fontSize:12}}
+        onMouseEnter={e=>e.currentTarget.style.background=C.hd} onMouseLeave={e=>e.currentTarget.style.background=""}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontWeight:600,color:C.tx}}>{r.nm}</span>
+          {r.type==="addr"&&<span style={{fontSize:9,padding:"1px 4px",borderRadius:3,background:C.bb,color:C.bt,fontWeight:600}}>주소</span>}</div>
+        {r.addr&&r.addr!==r.nm&&<div style={{fontSize:10,color:C.tm,marginTop:2}}>{r.addr}</div>}
+      </div>)}</div>}
+  </div>);
+}
+
+/* ── Route ── */
+function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mobile:m}){
+  const rd=cR(r,t);
+  const[calcMsg,setCalcMsg]=useState("");
+  const autoCalc=async(nr)=>{
+    const hasS=nr.slt!=null&&nr.slt!==0&&nr.slg!=null&&nr.slg!==0;
+    const hasE=nr.elt!=null&&nr.elt!==0&&nr.elg!=null&&nr.elg!==0;
+    if(hasS&&hasE){
+      setCalcMsg("경로 계산중...");u(nr);
+      const result=await kakaoDirections(nr.slt,nr.slg,nr.elt,nr.elg);
+      if(result){setCalcMsg("");u({...nr,dk:result.dk,tm:result.tm,tw:result.tw});}
+      else{setCalcMsg("계산실패");u(nr);setTimeout(()=>setCalcMsg(""),3000);}
+    }else u(nr);};
+  return (<div style={{border:`1px solid ${C.bd}`,borderRadius:4,marginBottom:8,overflow:"hidden",background:C.w}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.hd,padding:"4px 10px"}}>
+      <div style={{display:"flex",alignItems:"center",gap:4}}>
+        <span style={{fontSize:11,fontWeight:700,color:C.ac}}>차량{i+1}</span>
+        <input value={r.vn||""} onChange={e=>u({...r,vn:e.target.value})} placeholder="번호판" style={{border:"none",background:"transparent",fontSize:11,color:C.tx,fontWeight:500,outline:"none",width:80,padding:"0 4px",borderBottom:`1px dashed ${C.bd}`}}/>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        {r.tm>0&&<span style={{fontSize:10,color:C.td}}>~{r.tm}분</span>}
+        {cr&&<button onClick={e=>{e.stopPropagation();rm();}} style={{background:"none",border:"none",color:C.tm,cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>}
+      </div>
+    </div>
+    <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+      <tr><td style={{...cL,fontSize:11,width:m?36:44}}>출발</td>
+        <td colSpan={m?1:2} style={{...cI,padding:0}}><PlaceSearch value={r.sl} placeholder="건물명, 주소 검색"
+          onSelect={(nm,lat,lng)=>autoCalc({...r,sl:nm,slt:lat,slg:lng})}/></td>
+        {!m&&<><td style={{...cL,fontSize:11,width:44}}>도착</td>
+        <td colSpan={2} style={{...cI,padding:0}}><PlaceSearch value={r.el} placeholder="건물명, 주소 검색"
+          onSelect={(nm,lat,lng)=>autoCalc({...r,el:nm,elt:lat,elg:lng})}/></td></>}</tr>
+      {m&&<tr><td style={{...cL,fontSize:11}}>도착</td>
+        <td style={{...cI,padding:0}}><PlaceSearch value={r.el} placeholder="건물명, 주소 검색"
+          onSelect={(nm,lat,lng)=>autoCalc({...r,el:nm,elt:lat,elg:lng})}/></td></tr>}
+    </tbody></table>
+    <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+      <tr><td style={{...cL,fontSize:11}}>거리</td><td style={cI}><NI value={r.dk} onChange={v=>u({...r,dk:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,width:28,padding:"0 4px"}}>km</td>
+        <td style={{...cL,fontSize:11}}>시간</td><td style={cI}><NI value={r.tm} onChange={v=>u({...r,tm:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,width:28,padding:"0 4px"}}>분</td></tr>
+      <tr><td style={{...cL,fontSize:11}}>연비</td><td style={cI}><NI value={r.fe} onChange={v=>u({...r,fe:v})} step={0.1}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>km/L</td>
+        <td style={{...cL,fontSize:11}}>톨비</td><td style={cI}><NI value={r.tw} onChange={v=>u({...r,tw:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>원</td></tr>
+      <tr><td style={{...cL,fontSize:11}}>주유</td><td style={cI}><NI value={r.fp} onChange={v=>u({...r,fp:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>원/L</td>
+        <td style={{...cL,fontSize:11,fontWeight:700}}>차량비</td><td colSpan={2} style={{...cV,fontWeight:700,fontSize:12,color:C.ac}}>{fmt(rd.tt)}</td></tr>
+    </tbody></table></div>);
+}
+
+/* ── Schedule ── */
+function SchSec({sch:ss,onChange:oc,mobile:m}){
+  const add=()=>oc([...ss,mkS()]);const up=(i,s)=>{const a=[...ss];a[i]=s;oc(a);};const rm=i=>oc(ss.filter((_,j)=>j!==i));
+  const tg=i=>{const a=[...ss];a[i]={...a[i],dn:!a[i].dn};oc(a);};
+  const sorted=[...ss].sort((a,b)=>{const da=a.sd||a.date||"",db=b.sd||b.date||"";return!da?1:!db?-1:da.localeCompare(db);});
+  const im=sorted.map(s=>ss.findIndex(o=>o.id===s.id));
+  return(<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflow:"hidden",marginBottom:12}}>
+    <div style={{background:C.ac,color:"#fff",padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
+      <span>일정 ({ss.filter(s=>s.dn).length}/{ss.length})</span><Bn onClick={add}bg="rgba(255,255,255,0.2)"small>+ 추가</Bn></div>
+    {ss.length===0?<div style={{padding:14,textAlign:"center",color:C.tm,fontSize:12}}>일정을 추가해보세요</div>:
+    <div>{sorted.map((s,si)=>{const oi=im[si];const sd=s.sd||s.date||"";const ed=s.ed||"";
+      return(<div key={s.id}style={{display:"flex",alignItems:"center",gap:6,padding:"4px 8px",borderBottom:`1px solid ${C.bd}`,opacity:s.dn?0.5:1}}>
+        <input type="checkbox"checked={s.dn}onChange={()=>tg(oi)}style={{accentColor:C.ac,width:16,height:16,flexShrink:0}}/>
+        <input type="date"value={sd}onChange={e=>up(oi,{...s,sd:e.target.value,date:e.target.value})}style={{border:`1px solid ${C.bd}`,borderRadius:3,padding:"3px 4px",fontSize:11,width:m?105:110,outline:"none"}}/>
+        <span style={{fontSize:10,color:C.tm}}>~</span>
+        <input type="date"value={ed}onChange={e=>up(oi,{...s,ed:e.target.value})}style={{border:`1px solid ${C.bd}`,borderRadius:3,padding:"3px 4px",fontSize:11,width:m?105:110,outline:"none"}}/>
+        <input type="text"value={s.ct}onChange={e=>up(oi,{...s,ct:e.target.value})}placeholder="내용"style={{border:`1px solid ${C.bd}`,borderRadius:3,padding:"3px 6px",fontSize:12,flex:1,minWidth:0,outline:"none",textDecoration:s.dn?"line-through":"none"}}/>
+        <button onClick={()=>rm(oi)}style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14,flexShrink:0}}onMouseEnter={e=>e.currentTarget.style.color=C.rt}onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button>
+      </div>);})}</div>}</div>);
+}
+
+/* ── Payroll ── */
+function PayP({projects:ps,mobile:m}){
+  const[sm,ssm]=useState(()=>{const v=new Date().getMonth()+1;return v>=3?v:3;});const[cn,scn]=useState(null);
+  const yr=new Date().getFullYear(),mk=`${yr}-${String(sm).padStart(2,"0")}`;
+  const mp=ps.filter(p=>(p.pm||"")===mk);const am={};
+  mp.forEach(p=>{const c=cP(p);Object.entries(p.mb||{}).forEach(([n,pc])=>{
+    if(pc<=0&&!((p.md||{})[n]>0))return;if(!am[n])am[n]={rows:[],td:0,ta:0};
+    const d=(p.md||{})[n]||0,a=c.ma[n]||0;am[n].rows.push({pj:p.nm||"이름없음",cl:p.cl||"-",d,a});am[n].td+=d;am[n].ta+=a;});});
+  const cp=(n,d)=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3;
+    const l=[`[${sm}월 급여명세] ${n}`,"",`총 급여: ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급액: ${fmt(net)}`,`총 일수: ${d.td}일`,"","── 현장별 ──"];
+    d.rows.forEach(r=>l.push(`${r.pj} (${r.cl}) | ${r.d}일 | ${fmt(r.a)}`));l.push("",`합계: ${d.td}일 / ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급: ${fmt(net)}`);
+    navigator.clipboard.writeText(l.join("\n")).then(()=>{scn(n);setTimeout(()=>scn(null),2000);});};
+  const gt=Object.values(am).reduce((a,m)=>a+m.ta,0),gt3=Math.round(gt*0.033),gn=gt-gt3;
+
+  return(<div>
+    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>급여 관리</div>
+    <div style={{display:"flex",gap:4,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+      {MO.map(v=>{const cnt=ps.filter(p=>(p.pm||"")===`${yr}-${String(v).padStart(2,"0")}`).length;
+        return <button key={v}onClick={()=>ssm(v)}style={{padding:m?"6px 12px":"8px 16px",borderRadius:4,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,
+          background:v===sm?C.ac:C.w,color:v===sm?"#fff":C.tx,border:`1.5px solid ${v===sm?C.ac:C.bd}`,position:"relative"}}>
+          {v}월{cnt>0&&<span style={{position:"absolute",top:-6,right:-6,background:v===sm?"#fff":C.ac,color:v===sm?C.ac:"#fff",fontSize:9,fontWeight:800,borderRadius:99,width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{cnt}</span>}</button>;})}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:16}}>
+      {[{l:`${sm}월 현장`,v:`${mp.length}개`,c:C.ac},{l:"총 급여",v:fmt(gt),c:C.gt,bg:C.gn},{l:"3.3% 공제합계",v:fmt(gt3),c:C.rt,bg:C.rd},{l:"실지급합계",v:fmt(gn),c:C.bt,bg:C.bl},{l:"인원",v:`${Object.keys(am).length}명`,c:C.ac}].map(x=>
+        <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}</div>
+    {mp.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>{sm}월에 배정된 현장이 없습니다. 현장에서 정산월을 설정해주세요.</div>:
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {Object.entries(am).map(([n,d])=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3;return(
+        <div key={n}style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+          <div style={{background:C.ac,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+            <div><span style={{fontSize:16,fontWeight:800}}>{n}</span> <span style={{fontSize:12,opacity:0.8}}>{sm}월</span></div>
+            <button onClick={()=>cp(n,d)}style={{background:cn===n?C.gt:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:4,padding:"5px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{cn===n?"✓ 복사완료":"복사하기"}</button></div>
+          <div style={{display:"grid",gridTemplateColumns:m?"1fr 1fr":"repeat(5,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
+            {!m&&<div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>현장</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{d.rows.length}개</div></div>}
+            <div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>일수</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.bt}}>{d.td}일</div></div>
+            <div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>총 급여</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.gt}}>{fmt(d.ta)}</div></div>
+            <div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>3.3%</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.rt}}>{fmt(t3)}</div></div>
+            <div style={{padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>실지급</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.bt}}>{fmt(net)}</div></div></div>
+          <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>
+            <th style={{...cL,textAlign:"left"}}>현장명</th>{!m&&<th style={{...cL,textAlign:"left",width:120}}>발주처</th>}
+            <th style={{...cL,textAlign:"center",width:55}}>일수</th><th style={{...cL,textAlign:"right",width:100}}>금액</th></tr></thead>
+            <tbody>{d.rows.map((r,i)=><tr key={i}><td style={{...ce,fontWeight:600,fontSize:13}}>{r.pj}{m&&<div style={{fontSize:10,color:C.td}}>{r.cl}</div>}</td>
+              {!m&&<td style={{...ce,color:C.td,fontSize:12}}>{r.cl}</td>}
+              <td style={{...ce,textAlign:"center",fontWeight:600,color:r.d>0?C.bt:C.tm}}>{r.d>0?`${r.d}일`:"-"}</td>
+              <td style={{...cV,fontWeight:600,fontSize:13,color:r.a>0?C.gt:C.rt}}>{fmt(r.a)}</td></tr>)}
+              <tr style={{background:C.hd}}><td colSpan={m?1:2}style={{...cL,fontWeight:700}}>합계</td><td style={{...ce,textAlign:"center",fontWeight:700,color:C.bt}}>{d.td}일</td><td style={{...cV,fontWeight:700,color:C.gt}}>{fmt(d.ta)}</td></tr>
+              <tr><td colSpan={m?1:2}style={{...cL,color:C.rt}}>3.3%</td><td style={ce}></td><td style={{...cV,fontWeight:700,color:C.rt}}>{fmt(t3)}</td></tr>
+              <tr style={{background:C.bl}}><td colSpan={m?1:2}style={{...cL,fontWeight:700,background:C.bl}}>실지급</td><td style={{...ce,background:C.bl}}></td><td style={{...cV,fontWeight:800,fontSize:m?14:16,color:C.bt,background:C.bl}}>{fmt(net)}</td></tr>
+            </tbody></table></div>);})}</div>}</div>);
+}
+
+/* ── Detail ── */
+function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m}){
+  const c=cP(p),u=(k,v)=>oc({...p,[k]:v}),uM=(n,v)=>oc({...p,mb:{...p.mb,[n]:v}}),uD=(n,v)=>oc({...p,md:{...(p.md||{}),[n]:v}});
+  const tS=k=>oc({...p,st:{...p.st,[k]:!p.st[k]}});
+  const[nn,snn]=useState("");const[sa,ssa]=useState(false);
+  const addM=()=>{if(nn.trim()&&!p.mb[nn.trim()]){oc({...p,mb:{...p.mb,[nn.trim()]:0},md:{...(p.md||{}),[nn.trim()]:0}});snn("");ssa(false);}};
+  const delM=n=>{const mb={...p.mb};delete mb[n];const md={...(p.md||{})};delete md[n];oc({...p,mb,md});};
+  const aR=()=>oc({...p,routes:[...(p.routes||[]),mkR()]});const uR=(i,r)=>{const rs=[...p.routes];rs[i]=r;oc({...p,routes:rs});};
+  const rR=i=>{if(p.routes.length<=1)return;oc({...p,routes:p.routes.filter((_,j)=>j!==i)});};
+  const ps=Object.values(p.mb).reduce((a,b)=>a+b,0),mn=Object.keys(p.mb),tD=mn.reduce((a,n)=>a+((p.md||{})[n]||0),0);
+
+  const ctSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    <FR label="견적금액"><NI value={p.ea}onChange={v=>u("ea",v)}/></FR>
+    <FR label="계약금액"><NI value={p.ca}onChange={v=>u("ca",v)}/></FR>
+    <FR label="비율%"><NI value={p.rt}onChange={v=>u("rt",v)}/></FR>
+    <tr><td style={{...cL,fontWeight:700}}>기준금액</td><td style={{...cV,fontWeight:700,background:C.gn,color:C.gt}}>{fmt(c.b)}</td></tr>
+  </tbody></table>;
+  const acSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    <FR label="출장구분"><select value={p.tt}onChange={e=>u("tt",e.target.value)}style={{...ip,textAlign:"left",cursor:"pointer"}}><option>출장</option><option>출퇴근</option></select></FR>
+    <FR label="인원"><NI value={p.ps}onChange={v=>u("ps",v)}/></FR><FR label="평일단가"><NI value={p.wc}onChange={v=>u("wc",v)}/></FR>
+    <FR label="복귀단가"><NI value={p.rc}onChange={v=>u("rc",v)}/></FR><FR label="작업일수"><NI value={p.wd}onChange={v=>u("wd",v)}/></FR>
+    <FR label="복귀일수"><NI value={p.rtd}onChange={v=>u("rtd",v)}/></FR><FR label="왕복횟수"><NI value={p.trips}onChange={v=>u("trips",v)}/></FR>
+  </tbody></table>;
+  const rvSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    <FR label="검토기간"><NI value={p.rd}onChange={v=>u("rd",v)}/></FR><FR label="검토인원"><NI value={p.rp}onChange={v=>u("rp",v)}/></FR>
+    <tr><td style={{...cL,fontSize:11}}>검토비</td><td style={{...cV,fontSize:11}}>{fmt(c.rv)}</td></tr></tbody></table>;
+  const etSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    <FR label="식대"><NI value={p.mc}onChange={v=>u("mc",v)}/></FR><FR label="주차비"><NI value={p.pc}onChange={v=>u("pc",v)}/></FR>
+    <FR label="출력비"><NI value={p.prc}onChange={v=>u("prc",v)}/></FR><FR label="기타"><NI value={p.etc}onChange={v=>u("etc",v)}/></FR>
+  </tbody></table>;
+  const exSum=<table style={{width:"100%",borderCollapse:"collapse",borderTop:`2px solid ${C.bdd}`}}><tbody>
+    <tr><td style={{...cL,fontSize:11}}>숙식비</td><td style={{...cV,fontSize:11}}>{fmt(c.ac)}</td></tr>
+    <tr><td style={{...cL,fontSize:11}}>차량비</td><td style={{...cV,fontSize:11}}>{fmt(c.vh)}</td></tr>
+    <tr><td style={{...cL,fontSize:11}}>검토비</td><td style={{...cV,fontSize:11}}>{fmt(c.rv)}</td></tr>
+    {c.ex>0&&<tr><td style={{...cL,fontSize:11}}>기타</td><td style={{...cV,fontSize:11}}>{fmt(c.ex)}</td></tr>}
+    <tr><td style={{...cL,fontWeight:700,fontSize:13}}>경비합계</td><td style={{...cV,fontWeight:700,fontSize:13,background:C.hd2}}>{fmt(c.exp)}</td></tr>
+  </tbody></table>;
+  const lbSec=<><table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+    <tr><td style={cL}><div style={{display:"flex",alignItems:"center",gap:2}}>세금(<input type="number"value={p.tx??20}onChange={e=>u("tx",Number(e.target.value)||0)}style={{border:"none",background:C.yl,width:32,textAlign:"center",fontSize:12,fontWeight:700,outline:"none",borderRadius:2}}/>%)</div></td>
+      <td style={{...cV,color:C.rt,background:C.rd}}>{fmt(c.tx)}</td></tr>
+    <tr><td style={{...cL,fontWeight:700}}>인건비가능</td><td style={{...cV,fontWeight:700,fontSize:14,color:c.lb>=0?C.gt:C.rt,background:c.lb>=0?C.gn:C.rd}}>{fmt(c.lb)}</td></tr>
+  </tbody></table>
+  <table style={{width:"100%",borderCollapse:"collapse",borderTop:`2px solid ${C.bdd}`}}>
+    <thead><tr><th style={{...cL,fontSize:11,textAlign:"left",width:m?60:80}}>이름</th><th style={{...cL,fontSize:11,textAlign:"center",width:50}}>비율</th>
+      <th style={{...cL,fontSize:11,textAlign:"center",width:50}}>일수</th><th style={{...cL,fontSize:11,textAlign:"right"}}>금액</th><th style={{...cL,width:26}}></th></tr></thead>
+    <tbody>{mn.map(n=><tr key={n}><td style={{...ce,fontSize:m?11:13,fontWeight:600,whiteSpace:"nowrap"}}>{n}</td>
+      <td style={cI}><NI value={p.mb[n]}onChange={v=>uM(n,v)}style={{textAlign:"center",fontSize:12}}/></td>
+      <td style={cI}><NI value={(p.md||{})[n]}onChange={v=>uD(n,v)}step={0.5}style={{textAlign:"center",fontSize:12}}/></td>
+      <td style={{...cV,fontSize:12,fontWeight:600}}>{fmt(c.ma[n]||0)}</td>
+      <td style={{...ce,textAlign:"center",padding:0}}>{p.mb[n]>0?<button onClick={()=>{uM(n,0);uD(n,0);}}style={{background:"none",border:"none",color:C.ot,cursor:"pointer",fontSize:11,fontWeight:700}}>↺</button>
+        :<button onClick={()=>delM(n)}style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",fontSize:14}}>×</button>}</td></tr>)}
+    {sa&&<tr style={{background:C.bb}}><td style={{...ce,padding:"4px 4px"}}><input value={nn}onChange={e=>snn(e.target.value)}onKeyDown={e=>{if(e.key==="Enter")addM();if(e.key==="Escape"){ssa(false);snn("");}}}placeholder="이름"autoFocus style={{border:`1px solid ${C.bt}`,borderRadius:3,padding:"3px 4px",fontSize:12,fontWeight:600,outline:"none",width:"100%",boxSizing:"border-box"}}/></td>
+      <td colSpan={3}style={{...ce,padding:"4px"}}><Bn onClick={addM}bg={C.bt}small>추가</Bn></td><td style={ce}></td></tr>}
+    <tr><td style={{...cL,fontWeight:700}}>합계</td>
+      <td style={{...ce,textAlign:"center",fontWeight:700,fontSize:12,color:ps===100?C.gt:ps>100?C.rt:C.ot,background:ps===100?C.gn:ps>100?C.rd:C.og}}>{ps}%</td>
+      <td style={{...ce,textAlign:"center",fontWeight:600,color:C.bt}}>{tD}일</td><td style={{...cV,fontWeight:700,fontSize:13}}>{fmt(c.tl)}</td><td style={ce}></td></tr>
+    <tr><td style={{...cL,fontWeight:700}}>잔액</td><td colSpan={4}style={{...cV,fontWeight:700,fontSize:14,color:c.rm>=0?C.gt:C.rt,background:c.rm>=0?C.gn:C.rd}}>{fmt(c.rm)}</td></tr>
+    </tbody></table></>;
+
+  return(<div>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+      <Bn onClick={ob}bg="#e0e0d8"color={C.tx}style={{borderRadius:4}}>←</Bn>
+      <input value={p.nm}onChange={e=>u("nm",e.target.value)}placeholder="현장명"style={{fontSize:m?16:20,fontWeight:800,border:"none",borderBottom:`2px solid ${C.ac}`,background:"transparent",outline:"none",padding:"4px 2px",color:C.ac,flex:1,minWidth:100}}/>
+      <Bn onClick={()=>{if(window.confirm("삭제?"))od();}}bg={C.rd}color={C.rt}small>삭제</Bn></div>
+    <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>발주처</span>
+        <input value={p.cl||""}onChange={e=>u("cl",e.target.value)}placeholder="발주처명"style={{fontSize:12,border:`1px solid ${C.bd}`,borderRadius:3,background:C.w,outline:"none",padding:"4px 8px",width:m?120:180}}/></div>
+      <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>정산월</span>
+        <input type="month"value={p.pm||""}onChange={e=>u("pm",e.target.value)}style={{fontSize:11,border:`1px solid ${C.bd}`,borderRadius:3,background:C.yl,padding:"4px 6px",outline:"none",fontWeight:600,color:C.ac}}/></div></div>
+    <div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 12px",marginBottom:12}}>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>{ST.map(s=><SB key={s.k}checked={!!p.st[s.k]}label={s.l}color={s.c}onClick={()=>tS(s.k)}/>)}</div>
+      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>수금</span>
+        <div style={{background:C.yl,border:`1px solid ${C.bd}`,borderRadius:3}}><NI value={p.col}onChange={v=>u("col",v)}style={{width:110,padding:"4px 8px"}}/></div>
+        <span style={{fontSize:11,color:C.td}}>/ {fmt(p.ca)}</span></div>
+      {p.ca>0&&<div style={{marginTop:6,background:"#eee",borderRadius:99,height:5,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/p.ca)*100)}%`,background:(p.col||0)>=p.ca?C.gt:C.bt}}/></div>}
+      <input value={p.memo||""}onChange={e=>u("memo",e.target.value)}placeholder="메모"style={{width:"100%",marginTop:6,border:`1px solid ${C.bd}`,borderRadius:3,padding:"4px 8px",fontSize:12,outline:"none"}}/></div>
+    <SchSec sch={p.sch||[]}onChange={v=>u("sch",v)}mobile={m}/>
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(5,1fr)",gap:6,marginBottom:12}}>
+      {[{l:"기준금액",v:fmt(c.b)},{l:"경비",v:fmt(c.exp)},{l:`세금(${p.tx??20}%)`,v:fmt(c.tx),bg:C.rd,c:C.rt},{l:"인건비",v:fmt(c.lb),bg:c.lb<0?C.rd:C.gn,c:c.lb<0?C.rt:C.gt},{l:"잔액",v:fmt(c.rm),bg:c.rm<0?C.rd:C.gn,c:c.rm<0?C.rt:C.gt}].map(x=>
+        <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"6px 10px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c||C.tx}}>{x.v}</div></div>)}</div>
+    {m?(<div>
+      <Sec title="1) 계약금액">{ctSec}</Sec><Sec title="숙식/기본"open={false}>{acSec}</Sec><Sec title="검토"open={false}>{rvSec}</Sec><Sec title="기타경비"open={false}>{etSec}</Sec><Sec title="경비소계">{exSum}</Sec>
+      <Sec title={`2) 차량 (${(p.routes||[]).length}대)`}extra={<Bn onClick={aR}bg="rgba(255,255,255,0.2)"small>+차량</Bn>}>
+        <div style={{padding:8}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={m}/>)}</div>
+        <div style={{padding:"6px 10px",borderTop:`2px solid ${C.bdd}`,textAlign:"right"}}><span style={{fontSize:13,fontWeight:700,color:C.ac}}>차량비: {fmt(c.vh)}</span></div></Sec>
+      <Sec title="3) 인건비"extra={<Bn onClick={()=>ssa(!sa)}bg="rgba(255,255,255,0.2)"small>{sa?"취소":"+추가"}</Bn>}>{lbSec}</Sec>
+    </div>):(<div style={{display:"grid",gridTemplateColumns:"260px 1fr 380px",gap:0,background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+      <div style={{borderRight:`1px solid ${C.bd}`}}>
+        <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700}}>1) 계약금액</div>{ctSec}
+        <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,borderTop:`1px solid ${C.bd}`}}>숙식/기본</div>{acSec}
+        <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,borderTop:`1px solid ${C.bd}`}}>검토</div>{rvSec}
+        <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,borderTop:`1px solid ${C.bd}`}}>기타경비</div>{etSec}{exSum}</div>
+      <div style={{borderRight:`1px solid ${C.bd}`,background:C.bg,display:"flex",flexDirection:"column"}}>
+        <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
+          <span>2) 차량 ({(p.routes||[]).length}대)</span><Bn onClick={aR}bg="rgba(255,255,255,0.2)"small>+차량</Bn></div>
+        <div style={{padding:10,overflowY:"auto",flex:1}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={false}/>)}</div>
+        <div style={{padding:"8px 10px",borderTop:`2px solid ${C.bdd}`,background:C.w,textAlign:"right"}}><span style={{fontSize:13,fontWeight:700,color:C.ac}}>차량비: {fmt(c.vh)}</span></div></div>
+      <div><div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
+        <span>3) 인건비</span><Bn onClick={()=>ssa(!sa)}bg="rgba(255,255,255,0.2)"small>{sa?"취소":"+인원"}</Bn></div>{lbSec}</div>
+    </div>)}</div>);
+}
+
+/* ── Home ── */
+function PL({projects:ps,onSelect:os,onDelete:od,mobile:m}){
+  const tt=ps.reduce((a,p)=>{const c=cP(p);a.e+=(p.ea||0);a.c+=p.ca;a.b+=c.b;a.ex+=c.exp;a.tx+=c.tx;a.l+=c.lb;a.co+=(p.col||0);
+    a.rac+=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);return a;},{e:0,c:0,b:0,ex:0,tx:0,l:0,co:0,rac:0});
+  const cc=p=>ST.filter(s=>p.st?.[s.k]).length;const pc=p=>{const n=cc(p);if(n===4)return C.gt;if(n>=2)return"#d97706";if(n>=1)return C.bt;return C.tm;};
+  return (<div>
+    {ps.length>0&&<div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:14}}>
+      {[{l:"기준금액",v:fmt(tt.b),c:C.ac},{l:"견적금액",v:fmt(tt.e),c:"#9333ea"},{l:"경비(예상)",v:fmt(tt.ex),c:C.td},{l:"실제비용",v:fmt(tt.rac),c:"#d97706"},
+        {l:"인건비",v:fmt(tt.l),c:C.gt},{l:"수금",v:fmt(tt.co),c:C.bt}].map(x=>
+        <div key={x.l}style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"8px 12px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}</div>}
+    {m?(<div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {ps.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 16px",textAlign:"center",color:C.tm}}>현장을 추가해서 시작하세요</div>
+      :ps.map((p,i)=>{const c2=cP(p),pg=cc(p);return(
+        <div key={p.id}onClick={()=>os(p.id)}style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px",cursor:"pointer"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+            <div><div style={{fontSize:14,fontWeight:700,color:C.tx}}>{p.nm||"미입력"}</div><div style={{fontSize:11,color:C.td}}>{p.cl||"-"} · {p.pm?`${parseInt(p.pm.split("-")[1])}월`:"-"}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:13,fontWeight:700,color:C.ac}}>{fmt(cP(p).b)}</div><div style={{fontSize:11,color:c2.lb>=0?C.gt:C.rt,fontWeight:600}}>인건비 {fmt(c2.lb)}</div></div></div>
+          <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:4}}>
+            {ST.map(s=><span key={s.k}style={{padding:"1px 6px",borderRadius:3,fontSize:10,fontWeight:600,background:p.st?.[s.k]?s.c+"20":"#f0f0f0",color:p.st?.[s.k]?s.c:"#ccc"}}>{s.l}</span>)}
+            <span style={{fontSize:10,fontWeight:700,color:pc(p),marginLeft:4}}>{pg}/4</span></div>
+          {p.ca>0&&<div style={{background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/p.ca)*100)}%`,background:C.bt}}/></div>}
+        </div>);})}
+    </div>):(<div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{background:C.ac}}>
+        {["","현장명","발주처","월","기준금액","인건비","진행","수금",""].map((h,i)=><th key={i}style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:"#fff",textAlign:[4,5].includes(i)?"right":[6,7].includes(i)?"center":"left",whiteSpace:"nowrap"}}>{h}</th>)}
+      </tr></thead><tbody>
+        {ps.length===0?<tr><td colSpan={9}style={{...ce,textAlign:"center",padding:"40px 10px",color:C.tm}}>현장을 추가해서 시작하세요</td></tr>
+        :ps.map((p,i)=>{const c2=cP(p),pg=cc(p),cp=p.ca>0?Math.min(100,((p.col||0)/p.ca)*100):0,pm=p.pm?`${parseInt(p.pm.split("-")[1])}월`:"-";return(
+          <tr key={p.id}onClick={()=>os(p.id)}style={{cursor:"pointer",borderBottom:`1px solid ${C.bd}`}}onMouseEnter={e=>e.currentTarget.style.background="#f9f9f4"}onMouseLeave={e=>e.currentTarget.style.background=""}>
+            <td style={{...ce,textAlign:"center",color:C.tm,fontSize:11,width:30}}>{i+1}</td>
+            <td style={{...ce,fontWeight:700,fontSize:13}}>{p.nm||<span style={{color:C.tm}}>미입력</span>}{p.memo&&<div style={{fontSize:10,color:C.tm,fontWeight:400,marginTop:2}}>{p.memo}</div>}</td>
+            <td style={{...ce,fontSize:12,color:C.td}}>{p.cl||"-"}</td><td style={{...ce,fontSize:12,fontWeight:600,color:C.ac}}>{pm}</td>
+            <td style={{...ce,textAlign:"right",fontSize:12,fontWeight:600,color:C.ac}}>{fmt(c2.b)}</td>
+            <td style={{...ce,textAlign:"right",fontSize:12,fontWeight:600,color:c2.lb>=0?C.gt:C.rt}}>{fmt(c2.lb)}</td>
+            <td style={{...ce,textAlign:"center",width:200,padding:"6px 4px"}}>
+              <div style={{display:"flex",gap:3,justifyContent:"center",flexWrap:"wrap"}}>{ST.map(s=><span key={s.k}style={{padding:"2px 6px",borderRadius:3,fontSize:10,fontWeight:600,background:p.st?.[s.k]?s.c+"20":"#f0f0f0",color:p.st?.[s.k]?s.c:"#ccc",border:`1px solid ${p.st?.[s.k]?s.c+"40":"#e0e0e0"}`}}>{s.l}</span>)}</div>
+              <div style={{fontSize:10,color:pc(p),fontWeight:700,marginTop:3}}>{pg}/4</div></td>
+            <td style={{...ce,textAlign:"center",width:90}}><div style={{fontSize:11,fontWeight:700,color:p.ca>0&&(p.col||0)>=p.ca?C.gt:C.td}}>{fmt(p.col||0)}</div>
+              {p.ca>0&&<div style={{marginTop:3,background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${cp}%`,background:cp>=100?C.gt:C.bt}}/></div>}</td>
+            <td style={{...ce,textAlign:"center",width:30,padding:0}}><button onClick={e=>{e.stopPropagation();if(window.confirm("삭제?"))od(p.id);}}style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:16,padding:"4px"}}onMouseEnter={e=>e.currentTarget.style.color=C.rt}onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button></td>
+          </tr>);})}
+      </tbody></table></div>)}</div>);
+}
+
+/* ── Cost (가계부 스타일) ── */
+const COST_CATS = ["주유비","숙박비","교통비","식비","음료비","자재비","하이패스","기타"];
+const mkCRow = () => ({id:uid(),dt:"",cats:COST_CATS.map(()=>0),shop:"",memo:""});
+
+function CostP({projects:ps,onChange:oc,mobile:m}){
+  const [openId,setOpenId] = useState(null);
+  const allBase=ps.reduce((a,p)=>a+cP(p).b,0);
+  const allLb=ps.reduce((a,p)=>a+cP(p).tl,0);
+  const allAc=ps.reduce((a,p)=>{const rows=p.acl||[];return a+rows.reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);},0);
+  const profit=allBase-allLb-allAc;
+  const rate=allBase>0?Math.round((1-((allLb+allAc)/allBase))*100):0;
+
+  const addRow=(pid)=>{const p=ps.find(x=>x.id===pid);if(!p)return;oc({...p,acl:[...(p.acl||[]),mkCRow()]});};
+  const upRow=(pid,ri,row)=>{const p=ps.find(x=>x.id===pid);if(!p)return;const a=[...(p.acl||[])];a[ri]=row;oc({...p,acl:a});};
+  const rmRow=(pid,ri)=>{const p=ps.find(x=>x.id===pid);if(!p)return;oc({...p,acl:(p.acl||[]).filter((_,j)=>j!==ri)});};
+  const setCat=(pid,ri,ci,v)=>{const p=ps.find(x=>x.id===pid);if(!p)return;const a=[...(p.acl||[])];const row={...a[ri],cats:[...(a[ri].cats||COST_CATS.map(()=>0))]};row.cats[ci]=v;a[ri]=row;oc({...p,acl:a});};
+
+  return (<div>
+    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>비용 / 수익 관리</div>
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:8,marginBottom:16}}>
+      {[{l:"기준금액",v:fmt(allBase),c:C.ac},{l:"인건비",v:fmt(allLb),c:C.gt},{l:"현장경비",v:fmt(allAc),c:"#d97706"},
+        {l:"수익",v:fmt(profit),c:profit>=0?C.gt:C.rt,bg:profit>=0?C.gn:C.rd},{l:"여유율",v:`${rate}%`,c:rate>=20?C.gt:rate>=0?C.ot:C.rt}
+      ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
+        <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
+        <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    </div>
+    {ps.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>현장이 없습니다</div>:
+    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+      {ps.map(p=>{
+        const c=cP(p);const rows=p.acl||[];const open=openId===p.id;
+        const catTotals=COST_CATS.map((_,ci)=>rows.reduce((s,r)=>s+((r.cats||[])[ci]||0),0));
+        const realTotal=catTotals.reduce((a,v)=>a+v,0);
+        const pf=c.b-c.tl-realTotal;const pRate=c.b>0?Math.round((1-((c.tl+realTotal)/c.b))*100):0;
+        return (
+          <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+            {/* 현장 헤더 (클릭으로 열고닫기) */}
+            <div onClick={()=>setOpenId(open?null:p.id)} style={{background:open?C.ac:C.hd,color:open?"#fff":C.tx,padding:"10px 14px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:11,opacity:0.6}}>{open?"▼":"▶"}</span>
+                <span style={{fontSize:14,fontWeight:700}}>{p.nm||"이름없음"}</span>
+                <span style={{fontSize:11,opacity:0.7}}>{p.cl||""}</span>
+              </div>
+              <div style={{display:"flex",gap:m?8:16,alignItems:"center",flexWrap:"wrap"}}>
+                <span style={{fontSize:11}}><span style={{opacity:0.7}}>경비 </span><strong>{fmt(realTotal)}</strong></span>
+                <span style={{fontSize:11}}><span style={{opacity:0.7}}>예상 </span>{fmt(c.exp)}</span>
+                <span style={{fontSize:11}}><span style={{opacity:0.7}}>여유 </span><strong style={{color:open?(pRate>=0?"#a5f3a5":"#fca5a5"):(pRate>=0?C.gt:C.rt)}}>{pRate}%</strong></span>
+                <span style={{fontSize:12,fontWeight:700,color:open?(pf>=0?"#a5f3a5":"#fca5a5"):(pf>=0?C.gt:C.rt)}}>{fmt(pf)}</span>
+              </div>
+            </div>
+
+            {open && (<div>
+              {/* 요약 바 */}
+              <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>기준금액</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{fmt(c.b)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>인건비</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.gt}}>{fmt(c.tl)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>예상경비</div><div style={{fontSize:m?12:14,fontWeight:600,color:C.td}}>{fmt(c.exp)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>현재경비</div><div style={{fontSize:m?14:16,fontWeight:800,color:"#d97706"}}>{fmt(realTotal)}</div></div>
+                <div style={{padding:"8px 12px",background:pf>=0?C.gn:C.rd}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>수익</div><div style={{fontSize:m?14:16,fontWeight:800,color:pf>=0?C.gt:C.rt}}>{fmt(pf)}</div></div>
+              </div>
+
+              {/* 가계부 테이블 */}
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",minWidth:m?700:0}}>
+                  <thead><tr>
+                    <th style={{...cL,textAlign:"center",width:40,fontSize:10}}>#</th>
+                    <th style={{...cL,width:90,fontSize:10}}>일자</th>
+                    {COST_CATS.map(cat=> <th key={cat} style={{...cL,textAlign:"center",fontSize:10,minWidth:65}}>{cat}</th>)}
+                    <th style={{...cL,fontSize:10,minWidth:80}}>상호명</th>
+                    <th style={{...cL,textAlign:"right",width:80,fontSize:10}}>합산</th>
+                    <th style={{...cL,fontSize:10,minWidth:80}}>비고</th>
+                    <th style={{...cL,width:26}}></th>
+                  </tr></thead>
+                  <tbody>
+                    {rows.map((row,ri)=>{
+                      const rowTotal=(row.cats||[]).reduce((s,v)=>s+(v||0),0);
+                      return (
+                        <tr key={row.id}>
+                          <td style={{...ce,textAlign:"center",fontSize:10,color:C.tm}}>{ri+1}</td>
+                          <td style={cI}><input type="date" value={row.dt||""} onChange={e=>upRow(p.id,ri,{...row,dt:e.target.value})} style={{...ip,textAlign:"center",fontSize:11}}/></td>
+                          {COST_CATS.map((_,ci)=> <td key={ci} style={cI}><NI value={(row.cats||[])[ci]} onChange={v=>setCat(p.id,ri,ci,v)} style={{textAlign:"center",fontSize:11,padding:"4px 2px"}}/></td>)}
+                          <td style={cI}><TI value={row.shop||""} onChange={v=>upRow(p.id,ri,{...row,shop:v})} placeholder="상호" style={{fontSize:11}}/></td>
+                          <td style={{...cV,fontSize:11,fontWeight:600,color:rowTotal>0?"#d97706":C.tm}}>{rowTotal>0?fmt(rowTotal):"-"}</td>
+                          <td style={cI}><TI value={row.memo||""} onChange={v=>upRow(p.id,ri,{...row,memo:v})} placeholder="메모" style={{fontSize:11}}/></td>
+                          <td style={{...ce,textAlign:"center",padding:0}}><button onClick={()=>rmRow(p.id,ri)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}}
+                            onMouseEnter={e=>e.currentTarget.style.color=C.rt} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button></td>
+                        </tr>
+                      );
+                    })}
+                    {/* 합계 행 */}
+                    <tr style={{background:C.hd}}>
+                      <td colSpan={2} style={{...cL,fontWeight:700,fontSize:11}}>합계</td>
+                      {catTotals.map((v,ci)=> <td key={ci} style={{...ce,textAlign:"center",fontSize:11,fontWeight:600,color:v>0?"#d97706":C.tm,background:C.hd}}>{v>0?fmt(v):"-"}</td>)}
+                      <td style={{...ce,background:C.hd}}></td>
+                      <td style={{...cV,fontWeight:700,fontSize:12,color:"#d97706",background:C.hd}}>{fmt(realTotal)}</td>
+                      <td colSpan={2} style={{...ce,background:C.hd}}></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style={{padding:"6px 10px",borderTop:`1px solid ${C.bd}`}}>
+                <Bn onClick={()=>addRow(p.id)} bg={C.bt} small style={{width:"100%"}}>+ 행 추가</Bn>
+              </div>
+            </div>)}
+          </div>
+        );
+      })}
+    </div>}
+  </div>);
+}
+
+/* ── Settings ── */
+function SetP({fu,sfu,onS,onD,onU,ss,mobile:m}){const[iu,siu]=useState(fu);
+  return(<div><div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>설정</div>
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>서버 동기화 (Firebase)</div>
+      <div style={{padding:16}}><div style={{fontSize:12,color:C.td,marginBottom:10,lineHeight:1.6}}>Firebase Realtime Database URL을 입력하면 서버에 자동 저장됩니다.</div>
+        <div style={{fontSize:11,color:C.tm,marginBottom:12,padding:"8px 12px",background:C.hd,borderRadius:4,lineHeight:1.8}}>
+          <strong>설정:</strong> console.firebase.google.com → 프로젝트 만들기 → Realtime Database → 규칙에서 read/write를 true로 → URL 복사</div>
+        <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+          <input value={iu}onChange={e=>siu(e.target.value)}placeholder="https://your-project.firebaseio.com"style={{flex:1,minWidth:200,border:`1px solid ${C.bd}`,borderRadius:4,padding:"8px 12px",fontSize:13,outline:"none"}}/>
+          <Bn onClick={()=>sfu(iu.trim())}bg={C.ac}>저장</Bn></div>
+        {fu&&<div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{padding:"4px 10px",background:C.gn,borderRadius:4,fontSize:11,color:C.gt,fontWeight:600}}>✓ 연결됨</div>
+          <Bn onClick={()=>onS("up")}bg={C.bt}small>업로드</Bn><Bn onClick={()=>onS("down")}bg="#d97706"small>다운로드</Bn>
+          {ss&&<span style={{fontSize:11,color:ss.ok?C.gt:C.rt,fontWeight:600}}>{ss.msg}</span>}</div>}</div></div>
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>데이터 백업</div>
+      <div style={{padding:16,display:"flex",gap:8,flexWrap:"wrap"}}>
+        <Bn onClick={onD}bg={C.bt}>JSON 내보내기</Bn>
+        <label style={{background:"#d97706",color:"#fff",borderRadius:3,padding:"5px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>JSON 불러오기<input type="file"accept=".json"onChange={onU}style={{display:"none"}}/></label></div></div>
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>앱처럼 사용</div>
+      <div style={{padding:16,fontSize:12,color:C.td,lineHeight:1.8}}>Safari/Chrome → 공유 → "홈 화면에 추가"로 앱 아이콘 생성</div></div></div>);
+}
+
+async function fbG(u){try{const r=await fetch(`${u}/projects.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
+async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
+
+/* ── App ── */
+function App(){
+  const m=useM();const[ps,sps]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
+  const[fu,sfu]=useState("");const[ss,sss]=useState(null);const[splash,sSplash]=useState(true);
+  useEffect(()=>{const t=setTimeout(()=>sSplash(false),1500);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{(async()=>{try{const f=await storage.get(FK);if(f?.value)sfu(f.value);}catch{}try{const r=await storage.get(SK);if(r?.value){
+    let data=JSON.parse(r.value);
+    /* migrate old acl format */
+    data=data.map(p=>{if(!p.acl)return p;const acl=p.acl.map(row=>{if(row.cats)return row;
+      return{id:row.id||uid(),dt:row.dt||"",cats:COST_CATS.map(()=>0),shop:row.nm||"",memo:row.mm||""};});return{...p,acl};});
+    sps(data);}}catch{}sld(true);})();},[]);
+  useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(SK,JSON.stringify(ps));}catch{}})();},[ps,ld]);
+  useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(FK,fu);}catch{}})();},[fu,ld]);
+  useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>fbS(fu,ps),2000);return()=>clearTimeout(t);},[ps,ld,fu]);
+
+  const hS=async d=>{if(!fu)return;sss({ok:false,msg:"동기화중..."});
+    if(d==="up"){const ok=await fbS(fu,ps);sss({ok,msg:ok?"✓업로드완료":"✗실패"});}
+    else{const dt=await fbG(fu);if(dt&&Array.isArray(dt)){sps(dt);sss({ok:true,msg:`✓${dt.length}개 다운로드`});}
+      else if(dt&&typeof dt==="object"){const a=Object.values(dt);if(a.length){sps(a);sss({ok:true,msg:`✓${a.length}개 다운로드`});}else sss({ok:false,msg:"데이터없음"});}
+      else sss({ok:false,msg:"데이터없음"});}setTimeout(()=>sss(null),3000);};
+  const hD=()=>{const b=new Blob([JSON.stringify(ps,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`미도TC_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);};
+  const hU=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d))sps(d);}catch{}};r.readAsText(f);e.target.value="";};
+
+  const aP=()=>{const p=mkP();sps(v=>[...v,p]);sai(p.id);spg("home");};
+  const uP=up=>sps(v=>v.map(p=>p.id===up.id?up:p));const dP=id=>{sps(v=>v.filter(p=>p.id!==id));if(ai===id)sai(null);};
+  const ap=ps.find(p=>p.id===ai);
+
+  if(!ld||splash)return (<div style={{background:"linear-gradient(145deg, #2d5016 0%, #1a3008 100%)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',sans-serif"}}>
+    <div style={{width:80,height:80,borderRadius:20,background:"rgba(255,255,255,0.12)",backdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:20,border:"1px solid rgba(255,255,255,0.15)",boxShadow:"0 8px 32px rgba(0,0,0,0.3)"}}>
+      <svg width="48" height="48" viewBox="0 0 48 48"><path d="M8 40V12L16 28L24 8L32 28L40 12V40" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="24" cy="8" r="2.5" fill="#a5f3a5"/></svg>
+    </div>
+    <div style={{fontSize:28,fontWeight:800,color:"#fff",letterSpacing:3,marginBottom:4}}>미도T&C</div>
+    <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",letterSpacing:1}}>현장 경비 관리</div>
+    <div style={{marginTop:28,width:32,height:32,border:"3px solid rgba(255,255,255,0.15)",borderTopColor:"#a5f3a5",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+    <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style></div>);
+
+  const nb=(l,t)=><button onClick={()=>{spg(t);sai(null);}}style={{padding:m?"4px 10px":"6px 16px",fontSize:m?11:13,fontWeight:700,cursor:"pointer",borderRadius:4,
+    background:pg===t&&!ai?C.ac:"transparent",color:pg===t&&!ai?"#fff":C.td,border:`1px solid ${pg===t&&!ai?C.ac:"transparent"}`}}>{l}</button>;
+
+  return(<div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Pretendard',-apple-system,sans-serif"}}>
+    <style>{`@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');*{box-sizing:border-box;margin:0;padding:0;}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}table{table-layout:auto;}`}</style>
+    <div style={{background:C.w,borderBottom:`2px solid ${C.ac}`,padding:m?"6px 12px":"8px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
+      <div style={{display:"flex",alignItems:"center",gap:m?3:6}}>
+        <span style={{fontSize:m?13:17,fontWeight:800,color:C.ac,cursor:"pointer",marginRight:m?2:10}}onClick={()=>{spg("home");sai(null);}}>{m?"미도T&C":"미도T&C 현장 경비 관리"}</span>
+        {nb("현장","home")}{nb("비용","cost")}{nb("급여","payroll")}{nb(m?"⚙":"설정","settings")}
+        {fu&&<span style={{width:6,height:6,borderRadius:99,background:C.gt,marginLeft:2}}title="서버연결"/>}</div>
+      <Bn onClick={aP}bg={C.ac}small={m}style={{borderRadius:4}}>+ {m?"추가":"현장추가"}</Bn></div>
+    <div style={{maxWidth:1400,margin:"0 auto",padding:m?"10px 8px":"16px 12px"}}>
+      {ap?<PD project={ap}onChange={uP}onBack={()=>sai(null)}onDelete={()=>dP(ap.id)}mobile={m}/>
+      :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
+      :pg==="payroll"?<PayP projects={ps}mobile={m}/>
+      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}/>
+      :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
+    </div></div>);
+}
+
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
+</body>
+</html>
