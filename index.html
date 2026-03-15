@@ -49,7 +49,7 @@ function useM(bp=768){const[m,s]=useState(window.innerWidth<bp);useEffect(()=>{c
 const mkR=()=>({id:uid(),vn:"",sl:"",el:"",slt:0,slg:0,elt:0,elg:0,dk:0,tw:0,tm:0,fp:1650,fe:11.0});
 const mkS=()=>({id:uid(),sd:"",ed:"",ct:"",dn:false});
 const mkP=()=>({id:uid(),nm:"",cl:"",ea:0,ca:0,rt:70,tx:20,tt:"출장",wc:70000,rc:15000,rd:0,rp:1,wd:0,rtd:0,trips:1,ps:3,pm:cm(),
-  routes:[mkR()],mb:Object.fromEntries(DM.map(n=>[n,0])),md:Object.fromEntries(DM.map(n=>[n,0])),
+  routes:[mkR()],mb:Object.fromEntries(DM.map(n=>[n,0])),md:Object.fromEntries(DM.map(n=>[n,0])),mf:{},
   st:{},col:0,memo:"",mc:0,pc:0,prc:0,etc:0,sch:[],acl:[]});
 
 function cR(r,t){const e=r.fe||11;if(!r.dk||e<=0)return{f:0,t:0,tt:0};const f=(r.dk*2/e)*r.fp,tl=r.tw*2;return{f:Math.round(f*t),t:Math.round(tl*t),tt:Math.round((f+tl)*t)};}
@@ -58,7 +58,10 @@ function cP(p){
   let vh=0;(p.routes||[]).forEach(r=>{vh+=cR(r,p.trips).tt;});
   const ex=(p.mc||0)+(p.pc||0)+(p.prc||0)+(p.etc||0),exp=ac+vh+rv+ex;
   const tx=b*((p.tx??20)/100),lb=b-exp-tx;
-  const ma={};let tl=0;Object.entries(p.mb||{}).forEach(([n,pc])=>{const a=Math.round(lb*(pc/100));ma[n]=a;tl+=a;});
+  const ma={};let tl=0;Object.entries(p.mb||{}).forEach(([n,pc])=>{
+    const fixed=(p.mf||{})[n];
+    const a=fixed!=null&&fixed>0?fixed:Math.round(lb*(pc/100));
+    ma[n]=a;tl+=a;});
   return{b,ac,rv,vh,ex,exp,tx,lb,ma,rm:lb-tl,tl};
 }
 
@@ -275,11 +278,14 @@ function PayP({projects:ps,mobile:m}){
 
 /* ── Detail ── */
 function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
-  const c=cP(p),u=(k,v)=>oc({...p,[k]:v}),uM=(n,v)=>oc({...p,mb:{...p.mb,[n]:v}}),uD=(n,v)=>oc({...p,md:{...(p.md||{}),[n]:v}});
+  const c=cP(p),u=(k,v)=>oc({...p,[k]:v});
+  const uM=(n,v)=>{const mf={...(p.mf||{})};delete mf[n];oc({...p,mb:{...p.mb,[n]:v},mf});};
+  const uF=(n,amt)=>{oc({...p,mf:{...(p.mf||{}),[n]:amt}});};
+  const uD=(n,v)=>oc({...p,md:{...(p.md||{}),[n]:v}});
   const tS=k=>oc({...p,st:{...p.st,[k]:!p.st[k]}});
   const[nn,snn]=useState("");const[sa,ssa]=useState(false);
   const addM=()=>{if(nn.trim()&&!p.mb[nn.trim()]){oc({...p,mb:{...p.mb,[nn.trim()]:0},md:{...(p.md||{}),[nn.trim()]:0}});snn("");ssa(false);}};
-  const delM=n=>{const mb={...p.mb};delete mb[n];const md={...(p.md||{})};delete md[n];oc({...p,mb,md});};
+  const delM=n=>{const mb={...p.mb};delete mb[n];const md={...(p.md||{})};delete md[n];const mf={...(p.mf||{})};delete mf[n];oc({...p,mb,md,mf});};
   const aR=()=>oc({...p,routes:[...(p.routes||[]),mkR()]});const uR=(i,r)=>{const rs=[...p.routes];rs[i]=r;oc({...p,routes:rs});};
   const rR=i=>{if(p.routes.length<=1)return;oc({...p,routes:p.routes.filter((_,j)=>j!==i)});};
   const ps=Object.values(p.mb).reduce((a,b)=>a+b,0),mn=Object.keys(p.mb),tD=mn.reduce((a,n)=>a+((p.md||{})[n]||0),0);
@@ -318,11 +324,11 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   <table style={{width:"100%",borderCollapse:"collapse",borderTop:`2px solid ${C.bdd}`}}>
     <thead><tr><th style={{...cL,fontSize:11,textAlign:"left",width:m?60:80}}>이름</th><th style={{...cL,fontSize:11,textAlign:"center",width:50}}>비율</th>
       <th style={{...cL,fontSize:11,textAlign:"center",width:50}}>일수</th><th style={{...cL,fontSize:11,textAlign:"right"}}>금액(만)</th><th style={{...cL,width:26}}></th></tr></thead>
-    <tbody>{mn.map(n=>{const amt=c.ma[n]||0;return <tr key={n}><td style={{...ce,fontSize:m?11:13,fontWeight:600,whiteSpace:"nowrap"}}>{n}</td>
+    <tbody>{mn.map(n=>{const amt=c.ma[n]||0;const isFixed=(p.mf||{})[n]>0;return <tr key={n}><td style={{...ce,fontSize:m?11:13,fontWeight:600,whiteSpace:"nowrap"}}>{n}</td>
       <td style={cI}><NI value={p.mb[n]}onChange={v=>uM(n,v)}style={{textAlign:"center",fontSize:12}}/></td>
       <td style={cI}><NI value={(p.md||{})[n]}onChange={v=>uD(n,v)}step={0.5}style={{textAlign:"center",fontSize:12}}/></td>
-      <td style={cI}><NI value={Math.round(amt/10000)||0}onChange={v=>{const newAmt=v*10000;const newPct=c.lb>0?Math.round((newAmt/c.lb)*10000)/100:0;uM(n,newPct);}}style={{textAlign:"right",fontSize:12}}/></td>
-      <td style={{...ce,textAlign:"center",padding:0}}>{p.mb[n]>0?<button onClick={()=>{uM(n,0);uD(n,0);}}style={{background:"none",border:"none",color:C.ot,cursor:"pointer",fontSize:11,fontWeight:700}}>↺</button>
+      <td style={{...cI,background:isFixed?"#e8f0fe":C.yl}}><NI value={Math.round(amt/10000)||0}onChange={v=>uF(n,v*10000)}style={{textAlign:"right",fontSize:12}}/></td>
+      <td style={{...ce,textAlign:"center",padding:0}}>{(p.mb[n]>0||isFixed)?<button onClick={()=>{uM(n,0);uD(n,0);const mf={...(p.mf||{})};delete mf[n];oc({...p,mb:{...p.mb,[n]:0},md:{...(p.md||{}),[n]:0},mf});}}style={{background:"none",border:"none",color:C.ot,cursor:"pointer",fontSize:11,fontWeight:700}}>↺</button>
         :<button onClick={()=>delM(n)}style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",fontSize:14}}>×</button>}</td></tr>})}
     {sa&&<tr style={{background:C.bb}}><td style={{...ce,padding:"4px 4px"}}><input value={nn}onChange={e=>snn(e.target.value)}onKeyDown={e=>{if(e.key==="Enter")addM();if(e.key==="Escape"){ssa(false);snn("");}}}placeholder="이름"autoFocus style={{border:`1px solid ${C.bt}`,borderRadius:3,padding:"3px 4px",fontSize:12,fontWeight:600,outline:"none",width:"100%",boxSizing:"border-box"}}/></td>
       <td colSpan={3}style={{...ce,padding:"4px"}}><Bn onClick={addM}bg={C.bt}small>추가</Bn></td><td style={ce}></td></tr>}
