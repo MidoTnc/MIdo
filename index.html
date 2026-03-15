@@ -433,9 +433,10 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
   const [openId,setOpenId] = useState(null);
   const allBase=ps.reduce((a,p)=>a+cP(p).b,0);
   const allLb=ps.reduce((a,p)=>a+cP(p).tl,0);
+  const allTx=ps.reduce((a,p)=>a+cP(p).tx,0);
   const allAc=ps.reduce((a,p)=>{const rows=p.acl||[];return a+rows.reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);},0);
-  const profit=allBase-allLb-allAc;
-  const rate=allBase>0?Math.round((1-((allLb+allAc)/allBase))*100):0;
+  const profit=allBase-allTx-allLb-allAc;
+  const rate=allBase>0?Math.round((1-((allTx+allLb+allAc)/allBase))*100):0;
 
   const addRow=(pid)=>{const p=ps.find(x=>x.id===pid);if(!p)return;oc({...p,acl:[...(p.acl||[]),mkCRow()]});};
   const upRow=(pid,ri,row)=>{const p=ps.find(x=>x.id===pid);if(!p)return;const a=[...(p.acl||[])];a[ri]=row;oc({...p,acl:a});};
@@ -445,7 +446,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
   return (<div>
     <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>비용 / 수익 관리</div>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:8,marginBottom:16}}>
-      {[{l:"기준금액",v:fmt(allBase),c:C.ac},{l:"인건비",v:fmt(allLb),c:C.gt},{l:"현장경비",v:fmt(allAc),c:"#d97706"},
+      {[{l:"기준금액",v:fmt(allBase),c:C.ac},{l:"세금",v:fmt(allTx),c:C.rt},{l:"인건비",v:fmt(allLb),c:C.gt},{l:"현장경비",v:fmt(allAc),c:"#d97706"},
         {l:"수익",v:fmt(profit),c:profit>=0?C.gt:C.rt,bg:profit>=0?C.gn:C.rd},{l:"여유율",v:`${rate}%`,c:rate>=20?C.gt:rate>=0?C.ot:C.rt}
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
@@ -457,7 +458,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
         const c=cP(p);const rows=p.acl||[];const open=openId===p.id;
         const catTotals=COST_CATS.map((_,ci)=>rows.reduce((s,r)=>s+((r.cats||[])[ci]||0),0));
         const realTotal=catTotals.reduce((a,v)=>a+v,0);
-        const pf=c.b-c.tl-realTotal;const pRate=c.b>0?Math.round((1-((c.tl+realTotal)/c.b))*100):0;
+        const pf=c.b-c.tx-c.tl-realTotal;const pRate=c.b>0?Math.round((1-((c.tx+c.tl+realTotal)/c.b))*100):0;
         return (
           <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
             {/* 현장 헤더 (클릭으로 열고닫기) */}
@@ -477,11 +478,12 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
 
             {open && (<div>
               {/* 요약 바 */}
-              <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
+              <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(6,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>기준금액</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{fmt(c.b)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>세금</div><div style={{fontSize:m?12:14,fontWeight:700,color:C.rt}}>{fmt(c.tx)}</div></div>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>인건비</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.gt}}>{fmt(c.tl)}</div></div>
-                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>예상경비</div><div style={{fontSize:m?12:14,fontWeight:600,color:C.td}}>{fmt(c.exp)}</div></div>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>현재경비</div><div style={{fontSize:m?14:16,fontWeight:800,color:"#d97706"}}>{fmt(realTotal)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>예상경비</div><div style={{fontSize:m?12:14,fontWeight:600,color:C.td}}>{fmt(c.exp)}</div></div>
                 <div style={{padding:"8px 12px",background:pf>=0?C.gn:C.rd}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>수익</div><div style={{fontSize:m?14:16,fontWeight:800,color:pf>=0?C.gt:C.rt}}>{fmt(pf)}</div></div>
               </div>
 
