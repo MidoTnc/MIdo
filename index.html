@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2d5016">
+<meta name="application-name" content="미도T&amp;C">
+<meta name="apple-mobile-web-app-title" content="미도T&amp;C">
 <title>미도T&amp;C 현장 경비 관리</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -573,7 +575,8 @@ function VehP({vehicles:vs,onChange:oc,mobile:m}){
 }
 
 /* ── Settings ── */
-function SetP({fu,sfu,onS,onD,onU,ss,mobile:m}){const[iu,siu]=useState(fu);
+function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange}){const[iu,siu]=useState(fu);
+  const[showPw,setShowPw]=useState(false);const[newPw,setNewPw]=useState("");const[pwMsg,setPwMsg]=useState("");
   return(<div><div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>설정</div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>서버 동기화 (Firebase)</div>
@@ -594,7 +597,19 @@ function SetP({fu,sfu,onS,onD,onU,ss,mobile:m}){const[iu,siu]=useState(fu);
         <label style={{background:"#d97706",color:"#fff",borderRadius:3,padding:"5px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>JSON 불러오기<input type="file"accept=".json"onChange={onU}style={{display:"none"}}/></label></div></div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>앱처럼 사용</div>
-      <div style={{padding:16,fontSize:12,color:C.td,lineHeight:1.8}}>Safari/Chrome → 공유 → "홈 화면에 추가"로 앱 아이콘 생성</div></div></div>);
+      <div style={{padding:16,fontSize:12,color:C.td,lineHeight:1.8}}>Safari/Chrome → 공유 → "홈 화면에 추가"로 앱 아이콘 생성</div></div>
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginTop:16}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>비밀번호 변경</div>
+      <div style={{padding:16}}>
+        <div style={{fontSize:12,color:C.td,marginBottom:10}}>현재 비밀번호: <strong>{showPw?appPw:"••••"}</strong>
+          <button onClick={()=>setShowPw(!showPw)}style={{background:"none",border:"none",color:C.bt,cursor:"pointer",fontSize:11,marginLeft:6}}>{showPw?"숨기기":"보기"}</button></div>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <input type="text"inputMode="numeric"pattern="[0-9]*"value={newPw}onChange={e=>setNewPw(e.target.value.replace(/\D/g,""))}placeholder="새 비밀번호 (숫자)"
+            style={{border:`1px solid ${C.bd}`,borderRadius:4,padding:"8px 12px",fontSize:14,outline:"none",width:160,letterSpacing:3}}/>
+          <Bn onClick={()=>{if(newPw.length<4){setPwMsg("4자리 이상 입력");return;}onPwChange(newPw);setNewPw("");setPwMsg("✓ 변경완료");setTimeout(()=>setPwMsg(""),2000);}}bg={C.ac}>변경</Bn>
+          {pwMsg&&<span style={{fontSize:11,fontWeight:600,color:pwMsg.startsWith("✓")?C.gt:C.rt}}>{pwMsg}</span>}
+        </div>
+      </div></div></div>);
 }
 
 async function fbG(u){try{const r=await fetch(`${u}/projects.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
@@ -604,7 +619,11 @@ async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:
 function App(){
   const m=useM();const[ps,sps]=useState([]);const[vs,svs]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
   const[fu,sfu]=useState("");const[ss,sss]=useState(null);const[splash,sSplash]=useState(true);
-  useEffect(()=>{const t=setTimeout(()=>sSplash(false),1500);return()=>clearTimeout(t);},[]);
+  const[locked,setLocked]=useState(true);const[pwInput,setPwInput]=useState("");const[pwError,setPwError]=useState(false);
+  const[appPw,setAppPw]=useState("2025");
+  const tryLogin=()=>{if(pwInput===appPw){setLocked(false);setPwError(false);}else{setPwError(true);setPwInput("");}};
+  useEffect(()=>{(async()=>{try{const p=await storage.get("mido-pw");if(p?.value)setAppPw(p.value);}catch{}})();},[]);
+  const savePw=async(v)=>{setAppPw(v);try{await storage.set("mido-pw",v);}catch{}};  useEffect(()=>{const t=setTimeout(()=>sSplash(false),1500);return()=>clearTimeout(t);},[]);
   useEffect(()=>{(async()=>{try{const f=await storage.get(FK);if(f?.value)sfu(f.value);}catch{}
     try{const v=await storage.get(VK);if(v?.value)svs(JSON.parse(v.value));}catch{}
     try{const r=await storage.get(SK);if(r?.value){
@@ -639,6 +658,17 @@ function App(){
     <div style={{marginTop:28,width:32,height:32,border:"3px solid rgba(255,255,255,0.15)",borderTopColor:"#a5f3a5",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
     <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style></div>);
 
+  if(locked)return (<div style={{background:"linear-gradient(145deg, #2d5016 0%, #1a3008 100%)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',sans-serif"}}>
+    <div style={{fontSize:24,fontWeight:800,color:"#fff",letterSpacing:2,marginBottom:6}}>Mido T&C</div>
+    <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginBottom:30}}>현장 경비 관리</div>
+    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+      <input type="password"inputMode="numeric"pattern="[0-9]*"value={pwInput}onChange={e=>{setPwInput(e.target.value.replace(/\D/g,""));setPwError(false);}}onKeyDown={e=>{if(e.key==="Enter")tryLogin();}}
+        placeholder="비밀번호"autoFocus style={{border:"none",borderBottom:"2px solid rgba(255,255,255,0.3)",background:"transparent",color:"#fff",fontSize:16,padding:"8px 4px",width:160,outline:"none",textAlign:"center",letterSpacing:4}}/>
+      <button onClick={tryLogin}style={{background:"rgba(255,255,255,0.15)",border:"1px solid rgba(255,255,255,0.2)",color:"#fff",borderRadius:4,padding:"8px 16px",fontSize:13,fontWeight:600,cursor:"pointer"}}>입장</button>
+    </div>
+    {pwError&&<div style={{color:"#fca5a5",fontSize:12,marginTop:10}}>비밀번호가 틀렸습니다</div>}
+  </div>);
+
   const nb=(l,t)=><button onClick={()=>{spg(t);sai(null);}}style={{padding:m?"4px 10px":"6px 16px",fontSize:m?11:13,fontWeight:700,cursor:"pointer",borderRadius:4,
     background:pg===t&&!ai?C.ac:"transparent",color:pg===t&&!ai?"#fff":C.td,border:`1px solid ${pg===t&&!ai?C.ac:"transparent"}`}}>{l}</button>;
 
@@ -655,7 +685,7 @@ function App(){
       :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
       :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
       :pg==="payroll"?<PayP projects={ps}mobile={m}/>
-      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}/>
+      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}/>
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
     </div></div>);
 }
