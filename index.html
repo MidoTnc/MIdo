@@ -37,7 +37,7 @@ const{useState,useEffect,useRef}=React;
 
 
 
-const SK = "mido-v11", FK = "mido-fb";
+const SK = "mido-v11", FK = "mido-fb", VK = "mido-vehicles";
 const DM = ["김진휘","정창용","김민준","이은석","김태완","정민용","이재호"];
 const ST = [{k:"estimate",l:"견적완료",c:"#9333ea"},{k:"contract",l:"계약완료",c:"#2563eb"},{k:"report",l:"보고서납품",c:"#d97706"},{k:"invoice",l:"계산서발행",c:"#059669"}];
 const MO = [3,4,5,6,7,8,9,10,11,12];
@@ -93,8 +93,6 @@ async function kakaoSearch(query){
 const C={bg:"#f4f3ee",w:"#fff",bd:"#d0d0c8",bdd:"#a0a098",hd:"#e8e6dd",hd2:"#f0eee6",yl:"#fff9d6",
   gn:"#e6f4ea",gt:"#1a7431",rd:"#fde8e8",rt:"#c53030",bl:"#e8f0fe",bt:"#1a56db",bb:"#dbeafe",
   og:"#fff3e0",ot:"#c75300",tx:"#1a1a1a",td:"#666",tm:"#999",ac:"#2d5016"};
-/* Font scale: PC / Mobile */
-const F={title:[17,14],page:[18,16],sec:[12,11],label:[10,10],val:[16,14],th:[11,11],td:[12,12],tdb:[13,12],btn:[12,11],btnS:[11,10],badge:[11,10],muted:[11,10],inp:[12,12]};
 const cl={p:"6px 10px",b:`1px solid ${C.bd}`,f:12,va:"middle"};
 const ce={padding:cl.p,border:cl.b,fontSize:cl.f,verticalAlign:cl.va};
 const cL={...ce,background:C.hd,fontWeight:600,whiteSpace:"nowrap"};
@@ -129,7 +127,7 @@ function PlaceSearch({value,onSelect,placeholder}){
       try{const results=await kakaoSearch(v);srs(results);sshow(results.length>0);}
       catch(e){console.error("search error:",e);srs([]);sshow(false);}
     },300);};
-  const pick=(r)=>{console.log("PICK:",r.nm,r.lat,r.lng);sq(r.nm);srs([]);sshow(false);onSelect(r.nm,r.lat,r.lng);};
+  const pick=(r)=>{sq(r.nm);srs([]);sshow(false);onSelect(r.nm,r.lat,r.lng);};
   return (<div style={{position:"relative",flex:1}}>
     <input value={q} onChange={e=>search(e.target.value)} onFocus={()=>{if(rs.length)sshow(true);}} onBlur={()=>setTimeout(()=>sshow(false),200)} placeholder={placeholder}
       style={{...ip,textAlign:"left",width:"100%"}}/>
@@ -144,9 +142,14 @@ function PlaceSearch({value,onSelect,placeholder}){
 }
 
 /* ── Route ── */
-function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mobile:m}){
+function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mobile:m,vehicles:vs}){
   const rd=cR(r,t);
   const[calcMsg,setCalcMsg]=useState("");
+  const[showVeh,setShowVeh]=useState(false);
+  const loadVeh=(v)=>{
+    const nr={...r,vn:v.plate||v.nm,fe:v.fe,fp:v.fp};
+    if(v.sl&&v.slt){nr.sl=v.sl;nr.slt=v.slt;nr.slg=v.slg;}
+    u(nr);setShowVeh(false);};
   const autoCalc=async(nr)=>{
     const hasS=nr.slt!=null&&nr.slt!==0&&nr.slg!=null&&nr.slg!==0;
     const hasE=nr.elt!=null&&nr.elt!==0&&nr.elg!=null&&nr.elg!==0;
@@ -163,10 +166,20 @@ function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mo
         <input value={r.vn||""} onChange={e=>u({...r,vn:e.target.value})} placeholder="번호판" style={{border:"none",background:"transparent",fontSize:11,color:C.tx,fontWeight:500,outline:"none",width:80,padding:"0 4px",borderBottom:`1px dashed ${C.bd}`}}/>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
+        {vs&&vs.length>0&&<div style={{position:"relative"}}>
+          <button onClick={e=>{e.stopPropagation();setShowVeh(!showVeh);}} style={{background:C.bb,border:`1px solid ${C.bt}`,borderRadius:3,padding:"2px 6px",fontSize:10,fontWeight:600,color:C.bt,cursor:"pointer"}}>불러오기</button>
+          {showVeh&&<div style={{position:"absolute",top:"100%",right:0,background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,boxShadow:"0 4px 12px rgba(0,0,0,0.15)",zIndex:100,minWidth:140}}>
+            {vs.map(v=><div key={v.id} onClick={e=>{e.stopPropagation();loadVeh(v);}} style={{padding:"6px 10px",cursor:"pointer",borderBottom:`1px solid ${C.bd}`,fontSize:11}}
+              onMouseEnter={e=>e.currentTarget.style.background=C.hd} onMouseLeave={e=>e.currentTarget.style.background=""}>
+              <div style={{fontWeight:600}}>{v.nm||v.plate||"미등록"}</div>
+              {v.plate&&<div style={{fontSize:10,color:C.tm}}>{v.plate}</div>}
+            </div>)}</div>}
+        </div>}
         {r.tm>0&&<span style={{fontSize:10,color:C.td}}>~{r.tm}분</span>}
-        {cr&&<button onClick={e=>{e.stopPropagation();rm();}} style={{background:"none",border:"none",color:C.tm,cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>}
+        {cr&&<button onClick={e=>{e.stopPropagation();if(window.confirm("이 차량 경로를 삭제할까요?"))rm();}} style={{background:"none",border:"none",color:C.tm,cursor:"pointer",fontSize:15,lineHeight:1}}>×</button>}
       </div>
     </div>
+    {calcMsg&&<div style={{padding:"4px 10px",fontSize:11,fontWeight:600,color:C.bt,background:C.bb,textAlign:"center"}}>{calcMsg}</div>}
     <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
       <tr><td style={{...cL,fontSize:11,width:m?36:44}}>출발</td>
         <td colSpan={m?1:2} style={{...cI,padding:0}}><PlaceSearch value={r.sl} placeholder="건물명, 주소 검색"
@@ -182,7 +195,7 @@ function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mo
       <tr><td style={{...cL,fontSize:11}}>거리</td><td style={cI}><NI value={r.dk} onChange={v=>u({...r,dk:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,width:28,padding:"0 4px"}}>km</td>
         <td style={{...cL,fontSize:11}}>시간</td><td style={cI}><NI value={r.tm} onChange={v=>u({...r,tm:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,width:28,padding:"0 4px"}}>분</td></tr>
       <tr><td style={{...cL,fontSize:11}}>연비</td><td style={cI}><NI value={r.fe} onChange={v=>u({...r,fe:v})} step={0.1}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>km/L</td>
-        <td style={{...cL,fontSize:11}}>톨비</td><td style={cI}><NI value={r.tw} onChange={v=>u({...r,tw:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>원</td></tr>
+        <td style={{...cL,fontSize:11}}>톨비<span style={{fontSize:8,color:C.tm}}>(편도)</span></td><td style={cI}><NI value={r.tw} onChange={v=>u({...r,tw:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>원</td></tr>
       <tr><td style={{...cL,fontSize:11}}>주유</td><td style={cI}><NI value={r.fp} onChange={v=>u({...r,fp:v})}/></td><td style={{...ce,fontSize:10,color:C.tm,padding:"0 4px"}}>원/L</td>
         <td style={{...cL,fontSize:11,fontWeight:700}}>차량비</td><td colSpan={2} style={{...cV,fontWeight:700,fontSize:12,color:C.ac}}>{fmt(rd.tt)}</td></tr>
     </tbody></table></div>);
@@ -225,11 +238,11 @@ function PayP({projects:ps,mobile:m}){
 
   return(<div>
     <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>급여 관리</div>
-    <div style={{display:"flex",gap:4,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+    <div style={{display:"flex",gap:8,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
       {MO.map(v=>{const cnt=ps.filter(p=>(p.pm||"")===`${yr}-${String(v).padStart(2,"0")}`).length;
         return <button key={v}onClick={()=>ssm(v)}style={{padding:m?"6px 12px":"8px 16px",borderRadius:4,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,
-          background:v===sm?C.ac:C.w,color:v===sm?"#fff":C.tx,border:`1.5px solid ${v===sm?C.ac:C.bd}`,position:"relative"}}>
-          {v}월{cnt>0&&<span style={{position:"absolute",top:-6,right:-6,background:v===sm?"#fff":C.ac,color:v===sm?C.ac:"#fff",fontSize:9,fontWeight:800,borderRadius:99,width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center"}}>{cnt}</span>}</button>;})}
+          background:v===sm?C.ac:C.w,color:v===sm?"#fff":C.tx,border:`1.5px solid ${v===sm?C.ac:C.bd}`,display:"flex",alignItems:"center",gap:4}}>
+          {v}월{cnt>0&&<span style={{background:v===sm?"#fff":C.ac,color:v===sm?C.ac:"#fff",fontSize:9,fontWeight:800,borderRadius:99,width:16,height:16,display:"inline-flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{cnt}</span>}</button>;})}
     </div>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:16}}>
       {[{l:`${sm}월 현장`,v:`${mp.length}개`,c:C.ac},{l:"총 급여",v:fmt(gt),c:C.gt,bg:C.gn},{l:"3.3% 공제합계",v:fmt(gt3),c:C.rt,bg:C.rd},{l:"실지급합계",v:fmt(gn),c:C.bt,bg:C.bl},{l:"인원",v:`${Object.keys(am).length}명`,c:C.ac}].map(x=>
@@ -261,7 +274,7 @@ function PayP({projects:ps,mobile:m}){
 }
 
 /* ── Detail ── */
-function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m}){
+function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   const c=cP(p),u=(k,v)=>oc({...p,[k]:v}),uM=(n,v)=>oc({...p,mb:{...p.mb,[n]:v}}),uD=(n,v)=>oc({...p,md:{...(p.md||{}),[n]:v}});
   const tS=k=>oc({...p,st:{...p.st,[k]:!p.st[k]}});
   const[nn,snn]=useState("");const[sa,ssa]=useState(false);
@@ -304,18 +317,18 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m}){
   </tbody></table>
   <table style={{width:"100%",borderCollapse:"collapse",borderTop:`2px solid ${C.bdd}`}}>
     <thead><tr><th style={{...cL,fontSize:11,textAlign:"left",width:m?60:80}}>이름</th><th style={{...cL,fontSize:11,textAlign:"center",width:50}}>비율</th>
-      <th style={{...cL,fontSize:11,textAlign:"center",width:50}}>일수</th><th style={{...cL,fontSize:11,textAlign:"right"}}>금액</th><th style={{...cL,width:26}}></th></tr></thead>
-    <tbody>{mn.map(n=><tr key={n}><td style={{...ce,fontSize:m?11:13,fontWeight:600,whiteSpace:"nowrap"}}>{n}</td>
+      <th style={{...cL,fontSize:11,textAlign:"center",width:50}}>일수</th><th style={{...cL,fontSize:11,textAlign:"right"}}>금액(만)</th><th style={{...cL,width:26}}></th></tr></thead>
+    <tbody>{mn.map(n=>{const amt=c.ma[n]||0;return <tr key={n}><td style={{...ce,fontSize:m?11:13,fontWeight:600,whiteSpace:"nowrap"}}>{n}</td>
       <td style={cI}><NI value={p.mb[n]}onChange={v=>uM(n,v)}style={{textAlign:"center",fontSize:12}}/></td>
       <td style={cI}><NI value={(p.md||{})[n]}onChange={v=>uD(n,v)}step={0.5}style={{textAlign:"center",fontSize:12}}/></td>
-      <td style={{...cV,fontSize:12,fontWeight:600}}>{fmt(c.ma[n]||0)}</td>
+      <td style={cI}><NI value={Math.round(amt/10000)||0}onChange={v=>{const newAmt=v*10000;const newPct=c.lb>0?Math.round((newAmt/c.lb)*10000)/100:0;uM(n,newPct);}}style={{textAlign:"right",fontSize:12}}/></td>
       <td style={{...ce,textAlign:"center",padding:0}}>{p.mb[n]>0?<button onClick={()=>{uM(n,0);uD(n,0);}}style={{background:"none",border:"none",color:C.ot,cursor:"pointer",fontSize:11,fontWeight:700}}>↺</button>
-        :<button onClick={()=>delM(n)}style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",fontSize:14}}>×</button>}</td></tr>)}
+        :<button onClick={()=>delM(n)}style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",fontSize:14}}>×</button>}</td></tr>})}
     {sa&&<tr style={{background:C.bb}}><td style={{...ce,padding:"4px 4px"}}><input value={nn}onChange={e=>snn(e.target.value)}onKeyDown={e=>{if(e.key==="Enter")addM();if(e.key==="Escape"){ssa(false);snn("");}}}placeholder="이름"autoFocus style={{border:`1px solid ${C.bt}`,borderRadius:3,padding:"3px 4px",fontSize:12,fontWeight:600,outline:"none",width:"100%",boxSizing:"border-box"}}/></td>
       <td colSpan={3}style={{...ce,padding:"4px"}}><Bn onClick={addM}bg={C.bt}small>추가</Bn></td><td style={ce}></td></tr>}
     <tr><td style={{...cL,fontWeight:700}}>합계</td>
       <td style={{...ce,textAlign:"center",fontWeight:700,fontSize:12,color:ps===100?C.gt:ps>100?C.rt:C.ot,background:ps===100?C.gn:ps>100?C.rd:C.og}}>{ps}%</td>
-      <td style={{...ce,textAlign:"center",fontWeight:600,color:C.bt}}>{tD}일</td><td style={{...cV,fontWeight:700,fontSize:13}}>{fmt(c.tl)}</td><td style={ce}></td></tr>
+      <td style={{...ce,textAlign:"center",fontWeight:600,color:C.bt}}>{tD}일</td><td style={{...cV,fontWeight:700,fontSize:12}}>{Math.round(c.tl/10000)}만</td><td style={ce}></td></tr>
     <tr><td style={{...cL,fontWeight:700}}>잔액</td><td colSpan={4}style={{...cV,fontWeight:700,fontSize:14,color:c.rm>=0?C.gt:C.rt,background:c.rm>=0?C.gn:C.rd}}>{fmt(c.rm)}</td></tr>
     </tbody></table></>;
 
@@ -323,7 +336,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m}){
     <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
       <Bn onClick={ob}bg="#e0e0d8"color={C.tx}style={{borderRadius:4}}>←</Bn>
       <input value={p.nm}onChange={e=>u("nm",e.target.value)}placeholder="현장명"style={{fontSize:m?16:20,fontWeight:800,border:"none",borderBottom:`2px solid ${C.ac}`,background:"transparent",outline:"none",padding:"4px 2px",color:C.ac,flex:1,minWidth:100}}/>
-      <Bn onClick={()=>{if(window.confirm("삭제?"))od();}}bg={C.rd}color={C.rt}small>삭제</Bn></div>
+      <Bn onClick={()=>{if(window.confirm(`"${p.nm||"이 현장"}" 현장을 삭제할까요?\n데이터가 모두 사라집니다.`))od();}}bg={C.rd}color={C.rt}small>삭제</Bn></div>
     <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
       <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>발주처</span>
         <input value={p.cl||""}onChange={e=>u("cl",e.target.value)}placeholder="발주처명"style={{fontSize:12,border:`1px solid ${C.bd}`,borderRadius:3,background:C.w,outline:"none",padding:"4px 8px",width:m?120:180}}/></div>
@@ -343,7 +356,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m}){
     {m?(<div>
       <Sec title="1) 계약금액">{ctSec}</Sec><Sec title="숙식/기본"open={false}>{acSec}</Sec><Sec title="검토"open={false}>{rvSec}</Sec><Sec title="기타경비"open={false}>{etSec}</Sec><Sec title="경비소계">{exSum}</Sec>
       <Sec title={`2) 차량 (${(p.routes||[]).length}대)`}extra={<Bn onClick={aR}bg="rgba(255,255,255,0.2)"small>+차량</Bn>}>
-        <div style={{padding:8}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={m}/>)}</div>
+        <div style={{padding:8}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={m}vehicles={vs}/>)}</div>
         <div style={{padding:"6px 10px",borderTop:`2px solid ${C.bdd}`,textAlign:"right"}}><span style={{fontSize:13,fontWeight:700,color:C.ac}}>차량비: {fmt(c.vh)}</span></div></Sec>
       <Sec title="3) 인건비"extra={<Bn onClick={()=>ssa(!sa)}bg="rgba(255,255,255,0.2)"small>{sa?"취소":"+추가"}</Bn>}>{lbSec}</Sec>
     </div>):(<div style={{display:"grid",gridTemplateColumns:"260px 1fr 380px",gap:0,background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
@@ -355,7 +368,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m}){
       <div style={{borderRight:`1px solid ${C.bd}`,background:C.bg,display:"flex",flexDirection:"column"}}>
         <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
           <span>2) 차량 ({(p.routes||[]).length}대)</span><Bn onClick={aR}bg="rgba(255,255,255,0.2)"small>+차량</Bn></div>
-        <div style={{padding:10,overflowY:"auto",flex:1}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={false}/>)}</div>
+        <div style={{padding:10,overflowY:"auto",flex:1}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={false}vehicles={vs}/>)}</div>
         <div style={{padding:"8px 10px",borderTop:`2px solid ${C.bdd}`,background:C.w,textAlign:"right"}}><span style={{fontSize:13,fontWeight:700,color:C.ac}}>차량비: {fmt(c.vh)}</span></div></div>
       <div><div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
         <span>3) 인건비</span><Bn onClick={()=>ssa(!sa)}bg="rgba(255,255,255,0.2)"small>{sa?"취소":"+인원"}</Bn></div>{lbSec}</div>
@@ -401,7 +414,7 @@ function PL({projects:ps,onSelect:os,onDelete:od,mobile:m}){
               <div style={{fontSize:10,color:pc(p),fontWeight:700,marginTop:3}}>{pg}/4</div></td>
             <td style={{...ce,textAlign:"center",width:90}}><div style={{fontSize:11,fontWeight:700,color:p.ca>0&&(p.col||0)>=p.ca?C.gt:C.td}}>{fmt(p.col||0)}</div>
               {p.ca>0&&<div style={{marginTop:3,background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${cp}%`,background:cp>=100?C.gt:C.bt}}/></div>}</td>
-            <td style={{...ce,textAlign:"center",width:30,padding:0}}><button onClick={e=>{e.stopPropagation();if(window.confirm("삭제?"))od(p.id);}}style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:16,padding:"4px"}}onMouseEnter={e=>e.currentTarget.style.color=C.rt}onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button></td>
+            <td style={{...ce,textAlign:"center",width:30,padding:0}}><button onClick={e=>{e.stopPropagation();if(window.confirm(`"${p.nm||"이 현장"}" 삭제할까요?`))od(p.id);}}style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:16,padding:"4px"}}onMouseEnter={e=>e.currentTarget.style.color=C.rt}onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button></td>
           </tr>);})}
       </tbody></table></div>)}</div>);
 }
@@ -489,7 +502,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
                           <td style={cI}><TI value={row.shop||""} onChange={v=>upRow(p.id,ri,{...row,shop:v})} placeholder="상호" style={{fontSize:11}}/></td>
                           <td style={{...cV,fontSize:11,fontWeight:600,color:rowTotal>0?"#d97706":C.tm}}>{rowTotal>0?fmt(rowTotal):"-"}</td>
                           <td style={cI}><TI value={row.memo||""} onChange={v=>upRow(p.id,ri,{...row,memo:v})} placeholder="메모" style={{fontSize:11}}/></td>
-                          <td style={{...ce,textAlign:"center",padding:0}}><button onClick={()=>rmRow(p.id,ri)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}}
+                          <td style={{...ce,textAlign:"center",padding:0}}><button onClick={()=>{const has=(row.cats||[]).some(v=>v>0);if(!has||window.confirm("이 비용 행을 삭제할까요?"))rmRow(p.id,ri);}} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14}}
                             onMouseEnter={e=>e.currentTarget.style.color=C.rt} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button></td>
                         </tr>
                       );
@@ -512,6 +525,41 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
           </div>
         );
       })}
+    </div>}
+  </div>);
+}
+
+/* ── Vehicle Management ── */
+const mkV=()=>({id:uid(),nm:"",plate:"",fe:11.0,fp:1650,sl:"",slt:0,slg:0});
+function VehP({vehicles:vs,onChange:oc,mobile:m}){
+  const add=()=>oc([...vs,mkV()]);
+  const up=(i,v)=>{const a=[...vs];a[i]=v;oc(a);};
+  const rm=(i)=>oc(vs.filter((_,j)=>j!==i));
+  return (<div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac}}>차량 관리</div>
+      <Bn onClick={add} bg={C.ac}>+ 차량등록</Bn>
+    </div>
+    {vs.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>차량을 등록해서 현장에서 불러오세요</div>:
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {vs.map((v,i)=> (
+        <div key={v.id} style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+          <div style={{background:C.ac,color:"#fff",padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>{v.nm||v.plate||`차량 ${i+1}`}</span>
+            <button onClick={()=>{if(window.confirm(`${v.nm||v.plate||"차량"} 삭제할까요?`))rm(i);}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.6)",cursor:"pointer",fontSize:14}}>×</button>
+          </div>
+          <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
+            <FR label="차량이름"><TI value={v.nm} onChange={val=>up(i,{...v,nm:val})} placeholder="예: 회사차, 내차"/></FR>
+            <FR label="번호판"><TI value={v.plate} onChange={val=>up(i,{...v,plate:val})} placeholder="50부0868"/></FR>
+            <FR label="연비(km/L)"><NI value={v.fe} onChange={val=>up(i,{...v,fe:val})} step={0.1}/></FR>
+            <FR label="주유단가"><NI value={v.fp} onChange={val=>up(i,{...v,fp:val})}/></FR>
+          </tbody></table>
+          <div style={{padding:"6px 10px",borderTop:`1px solid ${C.bd}`}}>
+            <div style={{fontSize:11,color:C.td,fontWeight:600,marginBottom:4}}>기본 출발지</div>
+            <PlaceSearch value={v.sl} placeholder="기본 출발지 검색" onSelect={(nm,lat,lng)=>up(i,{...v,sl:nm,slt:lat,slg:lng})}/>
+          </div>
+        </div>
+      ))}
     </div>}
   </div>);
 }
@@ -546,16 +594,19 @@ async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:
 
 /* ── App ── */
 function App(){
-  const m=useM();const[ps,sps]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
+  const m=useM();const[ps,sps]=useState([]);const[vs,svs]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
   const[fu,sfu]=useState("");const[ss,sss]=useState(null);const[splash,sSplash]=useState(true);
   useEffect(()=>{const t=setTimeout(()=>sSplash(false),1500);return()=>clearTimeout(t);},[]);
-  useEffect(()=>{(async()=>{try{const f=await storage.get(FK);if(f?.value)sfu(f.value);}catch{}try{const r=await storage.get(SK);if(r?.value){
+  useEffect(()=>{(async()=>{try{const f=await storage.get(FK);if(f?.value)sfu(f.value);}catch{}
+    try{const v=await storage.get(VK);if(v?.value)svs(JSON.parse(v.value));}catch{}
+    try{const r=await storage.get(SK);if(r?.value){
     let data=JSON.parse(r.value);
     /* migrate old acl format */
     data=data.map(p=>{if(!p.acl)return p;const acl=p.acl.map(row=>{if(row.cats)return row;
       return{id:row.id||uid(),dt:row.dt||"",cats:COST_CATS.map(()=>0),shop:row.nm||"",memo:row.mm||""};});return{...p,acl};});
     sps(data);}}catch{}sld(true);})();},[]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(SK,JSON.stringify(ps));}catch{}})();},[ps,ld]);
+  useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(VK,JSON.stringify(vs));}catch{}})();},[vs,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(FK,fu);}catch{}})();},[fu,ld]);
   useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>fbS(fu,ps),2000);return()=>clearTimeout(t);},[ps,ld,fu]);
 
@@ -588,12 +639,13 @@ function App(){
     <div style={{background:C.w,borderBottom:`2px solid ${C.ac}`,padding:m?"6px 12px":"8px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
       <div style={{display:"flex",alignItems:"center",gap:m?3:6}}>
         <span style={{fontSize:m?13:17,fontWeight:800,color:C.ac,cursor:"pointer",marginRight:m?2:10}}onClick={()=>{spg("home");sai(null);}}>{m?"미도T&C":"미도T&C 현장 경비 관리"}</span>
-        {nb("현장","home")}{nb("비용","cost")}{nb("급여","payroll")}{nb(m?"⚙":"설정","settings")}
+        {nb("현장","home")}{nb("비용","cost")}{nb("차량","vehicle")}{nb("급여","payroll")}{nb(m?"⚙":"설정","settings")}
         {fu&&<span style={{width:6,height:6,borderRadius:99,background:C.gt,marginLeft:2}}title="서버연결"/>}</div>
       <Bn onClick={aP}bg={C.ac}small={m}style={{borderRadius:4}}>+ {m?"추가":"현장추가"}</Bn></div>
     <div style={{maxWidth:1400,margin:"0 auto",padding:m?"10px 8px":"16px 12px"}}>
-      {ap?<PD project={ap}onChange={uP}onBack={()=>sai(null)}onDelete={()=>dP(ap.id)}mobile={m}/>
+      {ap?<PD project={ap}onChange={uP}onBack={()=>sai(null)}onDelete={()=>dP(ap.id)}mobile={m}vehicles={vs}/>
       :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
+      :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
       :pg==="payroll"?<PayP projects={ps}mobile={m}/>
       :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}/>
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
