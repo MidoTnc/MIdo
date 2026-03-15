@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#2d5016">
-<meta name="application-name" content="미도T&amp;C">
-<meta name="apple-mobile-web-app-title" content="미도T&amp;C">
 <title>미도T&amp;C 현장 경비 관리</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/x-icon" href="favicon.ico">
@@ -231,7 +229,7 @@ function PayP({projects:ps,mobile:m}){
   const yr=new Date().getFullYear(),mk=`${yr}-${String(sm).padStart(2,"0")}`;
   const mp=ps.filter(p=>(p.pm||"")===mk);const am={};
   mp.forEach(p=>{const c=cP(p);Object.entries(p.mb||{}).forEach(([n,pc])=>{
-    if(pc<=0&&!((p.md||{})[n]>0))return;if(!am[n])am[n]={rows:[],td:0,ta:0};
+    if(pc<=0&&!((p.md||{})[n]>0)&&!((p.mf||{})[n]>0))return;if(!am[n])am[n]={rows:[],td:0,ta:0};
     const d=(p.md||{})[n]||0,a=c.ma[n]||0;am[n].rows.push({pj:p.nm||"이름없음",cl:p.cl||"-",d,a});am[n].td+=d;am[n].ta+=a;});});
   const cp=(n,d)=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3;
     const l=[`[${sm}월 급여명세] ${n}`,"",`총 급여: ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급액: ${fmt(net)}`,`총 일수: ${d.td}일`,"","── 현장별 ──"];
