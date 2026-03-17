@@ -162,8 +162,8 @@ function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mo
       if(result){setCalcMsg("");u({...nr,dk:result.dk,tm:result.tm,tw:result.tw});}
       else{setCalcMsg("계산실패");u(nr);setTimeout(()=>setCalcMsg(""),3000);}
     }else u(nr);};
-  return (<div style={{border:`1px solid ${C.bd}`,borderRadius:4,marginBottom:8,overflow:"hidden",background:C.w}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.hd,padding:"4px 10px"}}>
+  return (<div style={{border:`1px solid ${C.bd}`,borderRadius:4,marginBottom:8,overflow:"visible",background:C.w}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:C.hd,padding:"4px 10px",borderRadius:"4px 4px 0 0"}}>
       <div style={{display:"flex",alignItems:"center",gap:4}}>
         <span style={{fontSize:11,fontWeight:700,color:C.ac}}>차량{i+1}</span>
         <input value={r.vn||""} onChange={e=>u({...r,vn:e.target.value})} placeholder="번호판" style={{border:"none",background:"transparent",fontSize:11,color:C.tx,fontWeight:500,outline:"none",width:80,padding:"0 4px",borderBottom:`1px dashed ${C.bd}`}}/>
@@ -280,7 +280,7 @@ function PayP({projects:ps,mobile:m}){
 function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   const c=cP(p),u=(k,v)=>oc({...p,[k]:v});
   const uM=(n,v)=>{const mf={...(p.mf||{})};delete mf[n];oc({...p,mb:{...p.mb,[n]:v},mf});};
-  const uF=(n,amt)=>{oc({...p,mf:{...(p.mf||{}),[n]:amt}});};
+  const uF=(n,amt)=>{const pct=c.lb>0?Math.round((amt/c.lb)*10000)/100:0;oc({...p,mf:{...(p.mf||{}),[n]:amt},mb:{...p.mb,[n]:pct}});};
   const uD=(n,v)=>oc({...p,md:{...(p.md||{}),[n]:v}});
   const tS=k=>oc({...p,st:{...p.st,[k]:!p.st[k]}});
   const[nn,snn]=useState("");const[sa,ssa]=useState(false);
@@ -614,6 +614,8 @@ function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange}){const[iu,siu]=u
 
 async function fbG(u){try{const r=await fetch(`${u}/projects.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
 async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
+async function fbGV(u){try{const r=await fetch(`${u}/vehicles.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
+async function fbSV(u,d){try{await fetch(`${u}/vehicles.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
 
 /* ── App ── */
 function App(){
@@ -635,15 +637,17 @@ function App(){
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(SK,JSON.stringify(ps));}catch{}})();},[ps,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(VK,JSON.stringify(vs));}catch{}})();},[vs,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(FK,fu);}catch{}})();},[fu,ld]);
-  useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>fbS(fu,ps),2000);return()=>clearTimeout(t);},[ps,ld,fu]);
+  useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>{fbS(fu,ps);fbSV(fu,vs);},2000);return()=>clearTimeout(t);},[ps,vs,ld,fu]);
 
   const hS=async d=>{if(!fu)return;sss({ok:false,msg:"동기화중..."});
-    if(d==="up"){const ok=await fbS(fu,ps);sss({ok,msg:ok?"✓업로드완료":"✗실패"});}
-    else{const dt=await fbG(fu);if(dt&&Array.isArray(dt)){sps(dt);sss({ok:true,msg:`✓${dt.length}개 다운로드`});}
+    if(d==="up"){const ok=await fbS(fu,ps);await fbSV(fu,vs);sss({ok,msg:ok?"✓업로드완료":"✗실패"});}
+    else{const dt=await fbG(fu);const vt=await fbGV(fu);
+      if(dt&&Array.isArray(dt)){sps(dt);sss({ok:true,msg:`✓${dt.length}개 다운로드`});}
       else if(dt&&typeof dt==="object"){const a=Object.values(dt);if(a.length){sps(a);sss({ok:true,msg:`✓${a.length}개 다운로드`});}else sss({ok:false,msg:"데이터없음"});}
-      else sss({ok:false,msg:"데이터없음"});}setTimeout(()=>sss(null),3000);};
-  const hD=()=>{const b=new Blob([JSON.stringify(ps,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`미도TC_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);};
-  const hU=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d))sps(d);}catch{}};r.readAsText(f);e.target.value="";};
+      else sss({ok:false,msg:"데이터없음"});
+      if(vt&&Array.isArray(vt))svs(vt);}setTimeout(()=>sss(null),3000);};
+  const hD=()=>{const b=new Blob([JSON.stringify({projects:ps,vehicles:vs},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`미도TC_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);};
+  const hU=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d))sps(d);else if(d.projects){sps(d.projects);if(d.vehicles)svs(d.vehicles);}}catch{}};r.readAsText(f);e.target.value="";};
 
   const aP=()=>{const p=mkP();sps(v=>[...v,p]);sai(p.id);spg("home");};
   const uP=up=>sps(v=>v.map(p=>p.id===up.id?up:p));const dP=id=>{sps(v=>v.filter(p=>p.id!==id));if(ai===id)sai(null);};
