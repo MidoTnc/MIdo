@@ -37,7 +37,7 @@ const{useState,useEffect,useRef}=React;
 
 
 
-const SK = "mido-v11", FK = "mido-fb", VK = "mido-vehicles";
+const SK = "mido-v11", FK = "mido-fb", VK = "mido-vehicles", DK = "mido-defaults";
 const DM = ["김진휘","정창용","김민준","이은석","김태완","정민용","이재호"];
 const ST = [{k:"estimate",l:"견적완료",c:"#9333ea"},{k:"contract",l:"계약완료",c:"#2563eb"},{k:"report",l:"보고서납품",c:"#d97706"},{k:"invoice",l:"계산서발행",c:"#059669"}];
 const MO = [3,4,5,6,7,8,9,10,11,12];
@@ -46,11 +46,12 @@ const cm = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.get
 const fmt = n => `₩${Math.round(n).toLocaleString()}`;
 function useM(bp=768){const[m,s]=useState(window.innerWidth<bp);useEffect(()=>{const h=()=>s(window.innerWidth<bp);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[bp]);return m;}
 
+const DEF_SETTINGS={rt:70,tx:20,wc:70000,rc:15000,ps:3,rp:1,trips:1};
 const mkR=()=>({id:uid(),vn:"",sl:"",el:"",slt:0,slg:0,elt:0,elg:0,dk:0,tw:0,tm:0,fp:1650,fe:11.0});
 const mkS=()=>({id:uid(),sd:"",ed:"",ct:"",dn:false});
-const mkP=()=>({id:uid(),nm:"",cl:"",ea:0,ca:0,rt:70,tx:20,tt:"출장",wc:70000,rc:15000,rd:0,rp:1,wd:0,rtd:0,trips:1,ps:3,pm:cm(),
+const mkP=(df)=>{const d={...DEF_SETTINGS,...(df||{})};return{id:uid(),nm:"",cl:"",ea:0,ca:0,rt:d.rt,tx:d.tx,tt:"출장",wc:d.wc,rc:d.rc,rd:0,rp:d.rp,wd:0,rtd:0,trips:d.trips,ps:d.ps,pm:cm(),
   routes:[mkR()],mb:Object.fromEntries(DM.map(n=>[n,0])),md:Object.fromEntries(DM.map(n=>[n,0])),mf:{},
-  st:{},col:0,memo:"",mc:0,pc:0,prc:0,etc:0,sch:[],acl:[]});
+  st:{},col:0,memo:"",mc:0,pc:0,prc:0,etc:0,sch:[],acl:[]};};
 
 function cR(r,t){const e=r.fe||11;if(!r.dk||e<=0)return{f:0,t:0,tt:0};const f=(r.dk*2/e)*r.fp,tl=r.tw*2;return{f:Math.round(f*t),t:Math.round(tl*t),tt:Math.round((f+tl)*t)};}
 function cP(p){
@@ -306,7 +307,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
     <FR label="검토기간"><NI value={p.rd}onChange={v=>u("rd",v)}/></FR><FR label="검토인원"><NI value={p.rp}onChange={v=>u("rp",v)}/></FR>
     <tr><td style={{...cL,fontSize:11}}>검토비</td><td style={{...cV,fontSize:11}}>{fmt(c.rv)}</td></tr></tbody></table>;
   const etSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
-    <FR label="식대"><NI value={p.mc}onChange={v=>u("mc",v)}/></FR><FR label="주차비"><NI value={p.pc}onChange={v=>u("pc",v)}/></FR>
+    <FR label="주차비"><NI value={p.pc}onChange={v=>u("pc",v)}/></FR>
     <FR label="출력비"><NI value={p.prc}onChange={v=>u("prc",v)}/></FR><FR label="기타"><NI value={p.etc}onChange={v=>u("etc",v)}/></FR>
   </tbody></table>;
   const exSum=<table style={{width:"100%",borderCollapse:"collapse",borderTop:`2px solid ${C.bdd}`}}><tbody>
@@ -431,12 +432,16 @@ const mkCRow = () => ({id:uid(),dt:"",cats:COST_CATS.map(()=>0),shop:"",memo:""}
 
 function CostP({projects:ps,onChange:oc,mobile:m}){
   const [openId,setOpenId] = useState(null);
-  const allBase=ps.reduce((a,p)=>a+cP(p).b,0);
-  const allLb=ps.reduce((a,p)=>a+cP(p).tl,0);
-  const allTx=ps.reduce((a,p)=>a+cP(p).tx,0);
-  const allAc=ps.reduce((a,p)=>{const rows=p.acl||[];return a+rows.reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);},0);
-  const profit=allBase-allTx-allLb-allAc;
-  const allExp=ps.reduce((a,p)=>a+cP(p).exp,0);
+  const cp=ps.filter(p=>p.st?.contract);
+  const ep=ps.filter(p=>p.st?.estimate&&!p.st?.contract);
+  const allEa=ep.reduce((a,p)=>a+(p.ea||0),0);
+  const allBase=cp.reduce((a,p)=>a+cP(p).b,0);
+  const allLb=cp.reduce((a,p)=>a+cP(p).tl,0);
+  const allTx=cp.reduce((a,p)=>a+cP(p).tx,0);
+  const allExp=cp.reduce((a,p)=>a+cP(p).exp,0);
+  const allAc=cp.reduce((a,p)=>{const rows=p.acl||[];return a+rows.reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);},0);
+  const estProfit=allBase-allTx-allLb-allExp;
+  const realProfit=allBase-allTx-allLb-allAc;
   const rate=allExp>0?Math.round(((allExp-allAc)/allExp)*100):0;
 
   const addRow=(pid)=>{const p=ps.find(x=>x.id===pid);if(!p)return;oc({...p,acl:[...(p.acl||[]),mkCRow()]});};
@@ -446,9 +451,16 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
 
   return (<div>
     <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>비용 / 수익 관리</div>
-    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:8,marginBottom:16}}>
-      {[{l:"기준금액",v:fmt(allBase),c:C.ac},{l:"세금",v:fmt(allTx),c:C.rt},{l:"인건비",v:fmt(allLb),c:C.gt},{l:"현장경비",v:fmt(allAc),c:"#d97706"},
-        {l:"수익",v:fmt(profit),c:profit>=0?C.gt:C.rt,bg:profit>=0?C.gn:C.rd},{l:"경비여유",v:`${rate}%`,c:rate>=20?C.gt:rate>=0?C.ot:C.rt}
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:8}}>
+      {[{l:"견적금액(미계약)",v:fmt(allEa),c:"#9333ea"},{l:"기준금액(계약)",v:fmt(allBase),c:C.ac},{l:"세금",v:fmt(allTx),c:C.rt},{l:"인건비",v:fmt(allLb),c:C.gt}
+      ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
+        <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
+        <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
+      {[{l:"예상경비",v:fmt(allExp),c:C.td},{l:"실제경비",v:fmt(allAc),c:"#d97706"},
+        {l:"예상수익",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
+        {l:"실제수익",v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd}
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
@@ -456,10 +468,12 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
     {ps.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>현장이 없습니다</div>:
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
       {ps.map(p=>{
-        const c=cP(p);const rows=p.acl||[];const open=openId===p.id;
+        const c=cP(p);const rows=p.acl||[];const open=openId===p.id;const isCt=!!p.st?.contract;
         const catTotals=COST_CATS.map((_,ci)=>rows.reduce((s,r)=>s+((r.cats||[])[ci]||0),0));
         const realTotal=catTotals.reduce((a,v)=>a+v,0);
-        const pf=c.b-c.tx-c.tl-realTotal;const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
+        const estPf=c.b-c.tx-c.tl-c.exp;
+        const realPf=c.b-c.tx-c.tl-realTotal;
+        const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
         return (
           <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
             {/* 현장 헤더 (클릭으로 열고닫기) */}
@@ -468,24 +482,23 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
                 <span style={{fontSize:11,opacity:0.6}}>{open?"▼":"▶"}</span>
                 <span style={{fontSize:14,fontWeight:700}}>{p.nm||"이름없음"}</span>
                 <span style={{fontSize:11,opacity:0.7}}>{p.cl||""}</span>
+                {!isCt&&<span style={{fontSize:9,padding:"1px 5px",borderRadius:3,background:open?"rgba(255,255,255,0.2)":"#f0e8ff",color:open?"#fff":"#9333ea",fontWeight:600}}>미계약</span>}
               </div>
               <div style={{display:"flex",gap:m?8:16,alignItems:"center",flexWrap:"wrap"}}>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>경비 </span><strong>{fmt(realTotal)}</strong></span>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>예상 </span>{fmt(c.exp)}</span>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>여유 </span><strong style={{color:open?(pRate>=0?"#a5f3a5":"#fca5a5"):(pRate>=0?C.gt:C.rt)}}>{pRate}%</strong></span>
-                <span style={{fontSize:12,fontWeight:700,color:open?(pf>=0?"#a5f3a5":"#fca5a5"):(pf>=0?C.gt:C.rt)}}>{fmt(pf)}</span>
+                <span style={{fontSize:12,fontWeight:700,color:open?(realPf>=0?"#a5f3a5":"#fca5a5"):(realPf>=0?C.gt:C.rt)}}>{fmt(realPf)}</span>
               </div>
             </div>
 
             {open && (<div>
               {/* 요약 바 */}
-              <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(6,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
+              <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(4,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>기준금액</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{fmt(c.b)}</div></div>
-                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>세금</div><div style={{fontSize:m?12:14,fontWeight:700,color:C.rt}}>{fmt(c.tx)}</div></div>
-                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>인건비</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.gt}}>{fmt(c.tl)}</div></div>
-                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>현재경비</div><div style={{fontSize:m?14:16,fontWeight:800,color:"#d97706"}}>{fmt(realTotal)}</div></div>
-                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>예상경비</div><div style={{fontSize:m?12:14,fontWeight:600,color:C.td}}>{fmt(c.exp)}</div></div>
-                <div style={{padding:"8px 12px",background:pf>=0?C.gn:C.rd}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>수익</div><div style={{fontSize:m?14:16,fontWeight:800,color:pf>=0?C.gt:C.rt}}>{fmt(pf)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>세금+인건비</div><div style={{fontSize:m?12:14,fontWeight:700,color:C.td}}>{fmt(c.tx+c.tl)}</div></div>
+                <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`,background:estPf>=0?"#f0faf0":"#fef0f0"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>예상수익</div><div style={{fontSize:m?12:14,fontWeight:700,color:estPf>=0?C.gt:C.rt}}>{fmt(estPf)}</div></div>
+                <div style={{padding:"8px 12px",background:realPf>=0?C.gn:C.rd}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>실제수익</div><div style={{fontSize:m?14:16,fontWeight:800,color:realPf>=0?C.gt:C.rt}}>{fmt(realPf)}</div></div>
               </div>
 
               {/* 가계부 테이블 */}
@@ -575,9 +588,22 @@ function VehP({vehicles:vs,onChange:oc,mobile:m}){
 }
 
 /* ── Settings ── */
-function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange}){const[iu,siu]=useState(fu);
+function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange,defs,onDefsChange}){const[iu,siu]=useState(fu);
   const[showPw,setShowPw]=useState(false);const[newPw,setNewPw]=useState("");const[pwMsg,setPwMsg]=useState("");
+  const uDef=(k,v)=>onDefsChange({...defs,[k]:v});
   return(<div><div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>설정</div>
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>현장 기본값</div>
+      <div style={{padding:12}}><div style={{fontSize:11,color:C.tm,marginBottom:8}}>새 현장 추가 시 자동 적용되는 기본값</div>
+        <table style={{width:"100%",borderCollapse:"collapse",maxWidth:400}}><tbody>
+          <FR label="비율%"><NI value={defs.rt}onChange={v=>uDef("rt",v)}/></FR>
+          <FR label="세금%"><NI value={defs.tx}onChange={v=>uDef("tx",v)}/></FR>
+          <FR label="인원"><NI value={defs.ps}onChange={v=>uDef("ps",v)}/></FR>
+          <FR label="평일단가"><NI value={defs.wc}onChange={v=>uDef("wc",v)}/></FR>
+          <FR label="복귀단가"><NI value={defs.rc}onChange={v=>uDef("rc",v)}/></FR>
+          <FR label="검토인원"><NI value={defs.rp}onChange={v=>uDef("rp",v)}/></FR>
+          <FR label="왕복횟수"><NI value={defs.trips}onChange={v=>uDef("trips",v)}/></FR>
+        </tbody></table></div></div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>서버 동기화 (Firebase)</div>
       <div style={{padding:16}}><div style={{fontSize:12,color:C.td,marginBottom:10,lineHeight:1.6}}>Firebase Realtime Database URL을 입력하면 서버에 자동 저장됩니다.</div>
@@ -622,12 +648,13 @@ function App(){
   const m=useM();const[ps,sps]=useState([]);const[vs,svs]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
   const[fu,sfu]=useState("");const[ss,sss]=useState(null);const[splash,sSplash]=useState(true);
   const[locked,setLocked]=useState(true);const[pwInput,setPwInput]=useState("");const[pwError,setPwError]=useState(false);
-  const[appPw,setAppPw]=useState("2025");
+  const[appPw,setAppPw]=useState("2025");const[defs,setDefs]=useState({...DEF_SETTINGS});
   const tryLogin=()=>{if(pwInput===appPw){setLocked(false);setPwError(false);}else{setPwError(true);setPwInput("");}};
   useEffect(()=>{(async()=>{try{const p=await storage.get("mido-pw");if(p?.value)setAppPw(p.value);}catch{}})();},[]);
   const savePw=async(v)=>{setAppPw(v);try{await storage.set("mido-pw",v);}catch{}};  useEffect(()=>{const t=setTimeout(()=>sSplash(false),1500);return()=>clearTimeout(t);},[]);
   useEffect(()=>{(async()=>{try{const f=await storage.get(FK);if(f?.value)sfu(f.value);}catch{}
     try{const v=await storage.get(VK);if(v?.value)svs(JSON.parse(v.value));}catch{}
+    try{const df=await storage.get(DK);if(df?.value)setDefs(prev=>({...prev,...JSON.parse(df.value)}));}catch{}
     try{const r=await storage.get(SK);if(r?.value){
     let data=JSON.parse(r.value);
     /* migrate old acl format */
@@ -637,6 +664,7 @@ function App(){
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(SK,JSON.stringify(ps));}catch{}})();},[ps,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(VK,JSON.stringify(vs));}catch{}})();},[vs,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(FK,fu);}catch{}})();},[fu,ld]);
+  useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(DK,JSON.stringify(defs));}catch{}})();},[defs,ld]);
   useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>{fbS(fu,ps);fbSV(fu,vs);},2000);return()=>clearTimeout(t);},[ps,vs,ld,fu]);
 
   const hS=async d=>{if(!fu)return;sss({ok:false,msg:"동기화중..."});
@@ -649,7 +677,7 @@ function App(){
   const hD=()=>{const b=new Blob([JSON.stringify({projects:ps,vehicles:vs},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`미도TC_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);};
   const hU=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d))sps(d);else if(d.projects){sps(d.projects);if(d.vehicles)svs(d.vehicles);}}catch{}};r.readAsText(f);e.target.value="";};
 
-  const aP=()=>{const p=mkP();sps(v=>[...v,p]);sai(p.id);spg("home");};
+  const aP=()=>{const p=mkP(defs);sps(v=>[...v,p]);sai(p.id);spg("home");};
   const uP=up=>sps(v=>v.map(p=>p.id===up.id?up:p));const dP=id=>{sps(v=>v.filter(p=>p.id!==id));if(ai===id)sai(null);};
   const ap=ps.find(p=>p.id===ai);
 
@@ -689,7 +717,7 @@ function App(){
       :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
       :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
       :pg==="payroll"?<PayP projects={ps}mobile={m}/>
-      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}/>
+      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}defs={defs}onDefsChange={setDefs}/>
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
     </div></div>);
 }
