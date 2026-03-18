@@ -739,6 +739,7 @@ function App(){
   const[fu,sfu]=useState("");const[ss,sss]=useState(null);const[splash,sSplash]=useState(true);
   const[locked,setLocked]=useState(true);const[pwInput,setPwInput]=useState("");const[pwError,setPwError]=useState(false);
   const[appPw,setAppPw]=useState("2025");const[defs,setDefs]=useState({...DEF_SETTINGS});
+  const swRef=useRef({x:0,y:0});
   const tryLogin=()=>{if(pwInput===appPw){setLocked(false);setPwError(false);}else{setPwError(true);setPwInput("");}};
   useEffect(()=>{(async()=>{try{const p=await storage.get("mido-pw");if(p?.value)setAppPw(p.value);}catch{}})();},[]);
   const savePw=async(v)=>{setAppPw(v);try{await storage.set("mido-pw",v);}catch{}};  useEffect(()=>{const t=setTimeout(()=>sSplash(false),1500);return()=>clearTimeout(t);},[]);
@@ -795,7 +796,6 @@ function App(){
     background:pg===t&&!ai?C.ac:"transparent",color:pg===t&&!ai?"#fff":C.td,border:`1px solid ${pg===t&&!ai?C.ac:"transparent"}`}}>{l}</button>;
 
   const PAGES=["home","cost","vehicle","payroll","calendar","settings"];
-  const swRef=useRef({x:0,y:0});
   const onTS=e=>{swRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
   const onTE=e=>{if(ai)return;const dx=e.changedTouches[0].clientX-swRef.current.x;const dy=Math.abs(e.changedTouches[0].clientY-swRef.current.y);
     if(Math.abs(dx)>80&&dy<100){const ci=PAGES.indexOf(pg);if(dx<0&&ci<PAGES.length-1)spg(PAGES[ci+1]);if(dx>0&&ci>0)spg(PAGES[ci-1]);}};
