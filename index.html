@@ -593,48 +593,83 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
 
 /* ── Calendar ── */
 function CalP({projects:ps,mobile:m}){
-  const yr=new Date().getFullYear();
-  const[sm,ssm]=useState(new Date().getMonth()+1);
-  const mk=`${yr}-${String(sm).padStart(2,"0")}`;
-  const allSch=[];
-  ps.forEach(p=>{(p.sch||[]).forEach(s=>{const sd=s.sd||s.date||"";const ed=s.ed||"";
-    if(sd.startsWith(mk)||ed.startsWith(mk)||(sd<mk&&ed>=mk))
-      allSch.push({...s,pnm:p.nm||"미입력",pcl:p.cl||"",pid:p.id});
+  const today=new Date();
+  const[yr,setYr]=useState(today.getFullYear());
+  const[mo,setMo]=useState(today.getMonth());
+  const[selDay,setSelDay]=useState(null);
+  const DOW=["일","월","화","수","목","금","토"];
+  const first=new Date(yr,mo,1);const fDay=first.getDay();const daysInMonth=new Date(yr,mo+1,0).getDate();
+  const prevDays=new Date(yr,mo,0).getDate();
+  const mk=`${yr}-${String(mo+1).padStart(2,"0")}`;
+  const todayStr=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}`;
+
+  // Build event map: day -> [{pnm,ct,dn,sd,ed,color}]
+  const colors=["#3b82f6","#8b5cf6","#ef4444","#f59e0b","#10b981","#ec4899","#06b6d4","#84cc16"];
+  const evMap={};
+  ps.forEach((p,pi)=>{(p.sch||[]).forEach(s=>{
+    const sd=s.sd||s.date||"";const ed=s.ed||sd;if(!sd)return;
+    const col=colors[pi%colors.length];
+    for(let d=1;d<=daysInMonth;d++){
+      const ds=`${mk}-${String(d).padStart(2,"0")}`;
+      if(ds>=sd&&ds<=ed){if(!evMap[d])evMap[d]=[];evMap[d].push({pnm:p.nm||"미입력",ct:s.ct||"",dn:s.dn,sd,ed,col});}
+    }
   });});
-  allSch.sort((a,b)=>(a.sd||a.date||"").localeCompare(b.sd||b.date||""));
-  const done=allSch.filter(s=>s.dn).length;
+
+  const prev=()=>{if(mo===0){setYr(yr-1);setMo(11);}else setMo(mo-1);setSelDay(null);};
+  const next=()=>{if(mo===11){setYr(yr+1);setMo(0);}else setMo(mo+1);setSelDay(null);};
+  const goToday=()=>{setYr(today.getFullYear());setMo(today.getMonth());setSelDay(today.getDate());};
+
+  const cells=[];
+  for(let i=0;i<fDay;i++)cells.push({d:prevDays-fDay+1+i,cur:false});
+  for(let d=1;d<=daysInMonth;d++)cells.push({d,cur:true});
+  const rem=7-cells.length%7;if(rem<7)for(let i=1;i<=rem;i++)cells.push({d:i,cur:false});
+
+  const selEvts=selDay?evMap[selDay]||[]:[];
+
   return(<div>
-    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>캘린더</div>
-    <div style={{display:"flex",gap:4,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
-      {[1,2,3,4,5,6,7,8,9,10,11,12].map(v=>{
-        const cnt=ps.reduce((a,p)=>(p.sch||[]).filter(s=>{const sd=s.sd||s.date||"";return sd.startsWith(`${yr}-${String(v).padStart(2,"0")}`);}).length+a,0);
-        return <button key={v}onClick={()=>ssm(v)}style={{padding:m?"6px 12px":"8px 16px",borderRadius:4,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",gap:4,
-          background:v===sm?C.ac:C.w,color:v===sm?"#fff":C.tx,border:`1.5px solid ${v===sm?C.ac:C.bd}`}}>
-          {v}월{cnt>0&&<span style={{background:v===sm?"#fff":C.ac,color:v===sm?C.ac:"#fff",fontSize:9,fontWeight:800,borderRadius:99,width:16,height:16,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{cnt}</span>}</button>;})}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+      <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac}}>캘린더</div>
+      <button onClick={goToday} style={{background:C.bl,border:"none",borderRadius:4,padding:"4px 12px",fontSize:11,fontWeight:600,color:C.bt,cursor:"pointer"}}>오늘</button>
     </div>
-    <div style={{display:"grid",gridTemplateColumns:m?"1fr":"1fr 1fr",gap:8,marginBottom:16}}>
-      {[{l:`${sm}월 일정`,v:`${allSch.length}건`,c:C.ac},{l:"완료",v:`${done}/${allSch.length}`,c:done===allSch.length&&allSch.length>0?C.gt:C.bt}].map(x=>
-        <div key={x.l}style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    <div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:8,overflow:"hidden",marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:C.ac}}>
+        <button onClick={prev} style={{background:"none",border:"none",color:"#fff",fontSize:18,cursor:"pointer",padding:"0 8px"}}>‹</button>
+        <div style={{fontSize:16,fontWeight:700,color:"#fff"}}>{yr}년 {mo+1}월</div>
+        <button onClick={next} style={{background:"none",border:"none",color:"#fff",fontSize:18,cursor:"pointer",padding:"0 8px"}}>›</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)"}}>
+        {DOW.map((d,i)=><div key={d}style={{padding:"8px 0",textAlign:"center",fontSize:11,fontWeight:700,color:i===0?"#ef4444":i===6?"#3b82f6":C.td,background:C.hd}}>{d}</div>)}
+        {cells.map((c,i)=>{const isToday=c.cur&&`${mk}-${String(c.d).padStart(2,"0")}`===todayStr;
+          const isSel=c.cur&&c.d===selDay;const evts=c.cur?evMap[c.d]||[]:[];const dow=i%7;
+          return <div key={i} onClick={()=>{if(c.cur)setSelDay(c.d===selDay?null:c.d);}}
+            style={{padding:m?"4px 2px":"6px 4px",minHeight:m?48:64,borderTop:`1px solid ${C.bd}`,borderRight:(i+1)%7!==0?`1px solid ${C.bd+"60"}`:"none",
+              background:isSel?C.ac+"12":isToday?"#eff6ff":c.cur?"#fff":"#f9fafb",cursor:c.cur?"pointer":"default",position:"relative"}}>
+            <div style={{fontSize:m?11:12,fontWeight:isToday||isSel?800:500,textAlign:"center",marginBottom:2,
+              color:!c.cur?"#d1d5db":isToday?"#fff":isSel?C.ac:dow===0?"#ef4444":dow===6?"#3b82f6":C.tx}}>
+              {isToday?<span style={{background:C.ac,color:"#fff",borderRadius:99,width:m?20:24,height:m?20:24,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:m?10:12}}>{c.d}</span>:c.d}
+            </div>
+            {evts.slice(0,m?2:3).map((e,ei)=><div key={ei}style={{fontSize:m?8:9,padding:"1px 3px",marginBottom:1,borderRadius:2,
+              background:e.col+"20",color:e.col,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+              textDecoration:e.dn?"line-through":"none",opacity:e.dn?0.5:1}}>{e.pnm}</div>)}
+            {evts.length>(m?2:3)&&<div style={{fontSize:8,color:C.tm,textAlign:"center"}}>+{evts.length-(m?2:3)}</div>}
+          </div>;})}
+      </div>
     </div>
-    {allSch.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>{sm}월 일정이 없습니다</div>:
-    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-      {allSch.map((s,i)=>{const sd=s.sd||s.date||"";const ed=s.ed||"";const dd=sd?sd.split("-").slice(1).join("/"):"";const de=ed?ed.split("-").slice(1).join("/"):"";
-        return(<div key={s.id+i}style={{background:C.w,border:`1px solid ${s.dn?C.bd:C.ac+"40"}`,borderRadius:4,padding:"10px 14px",opacity:s.dn?0.6:1}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
-                <span style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:C.ac+"18",color:C.ac,fontWeight:700}}>{s.pnm}</span>
-                {s.pcl&&<span style={{fontSize:9,color:C.tm}}>{s.pcl}</span>}
-              </div>
-              <div style={{fontSize:13,fontWeight:600,color:C.tx,textDecoration:s.dn?"line-through":"none"}}>{s.ct||"내용 없음"}</div>
-            </div>
-            <div style={{textAlign:"right",flexShrink:0}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.ac}}>{dd}</div>
-              {de&&de!==dd&&<div style={{fontSize:10,color:C.tm}}>~{de}</div>}
-              {s.dn&&<span style={{fontSize:9,color:C.gt,fontWeight:600}}>완료</span>}
-            </div>
+    {selDay&&<div style={{background:C.w,border:`1.5px solid ${C.ac}`,borderRadius:8,overflow:"hidden",marginBottom:12}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:13,fontWeight:700}}>{mo+1}월 {selDay}일 일정 ({selEvts.length}건)</div>
+      {selEvts.length===0?<div style={{padding:20,textAlign:"center",color:C.tm,fontSize:12}}>일정이 없습니다</div>:
+      <div>{selEvts.map((e,i)=>{const sd=e.sd.split("-").slice(1).join("/");const ed=e.ed&&e.ed!==e.sd?e.ed.split("-").slice(1).join("/"):"";
+        return <div key={i}style={{padding:"10px 14px",borderBottom:`1px solid ${C.bd}`,display:"flex",gap:10,alignItems:"center",opacity:e.dn?0.5:1}}>
+          <div style={{width:4,height:32,borderRadius:2,background:e.col,flexShrink:0}}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:9,color:e.col,fontWeight:700,marginBottom:2}}>{e.pnm}</div>
+            <div style={{fontSize:13,fontWeight:600,color:C.tx,textDecoration:e.dn?"line-through":"none"}}>{e.ct||"내용 없음"}</div>
           </div>
-        </div>);})}
+          <div style={{textAlign:"right",flexShrink:0}}>
+            <div style={{fontSize:11,fontWeight:600,color:C.td}}>{sd}</div>
+            {ed&&<div style={{fontSize:10,color:C.tm}}>~{ed}</div>}
+          </div>
+        </div>})}</div>}
     </div>}
   </div>);
 }
