@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#2d5016">
+<meta name="theme-color" content="#1e3a5f">
 <meta name="application-name" content="미도T&amp;C">
 <meta name="apple-mobile-web-app-title" content="미도T&amp;C">
 <title>미도T&amp;C 현장 경비 관리</title>
@@ -94,9 +94,9 @@ async function kakaoSearch(query){
   }catch(e){console.error("search error:",e);return[];}
 }
 
-const C={bg:"#f4f3ee",w:"#fff",bd:"#d0d0c8",bdd:"#a0a098",hd:"#e8e6dd",hd2:"#f0eee6",yl:"#fff9d6",
-  gn:"#e6f4ea",gt:"#1a7431",rd:"#fde8e8",rt:"#c53030",bl:"#e8f0fe",bt:"#1a56db",bb:"#dbeafe",
-  og:"#fff3e0",ot:"#c75300",tx:"#1a1a1a",td:"#666",tm:"#999",ac:"#2d5016"};
+const C={bg:"#f0f2f5",w:"#fff",bd:"#d1d5db",bdd:"#9ca3af",hd:"#e5e7eb",hd2:"#f3f4f6",yl:"#fef3c7",
+  gn:"#d1fae5",gt:"#065f46",rd:"#fee2e2",rt:"#b91c1c",bl:"#dbeafe",bt:"#1d4ed8",bb:"#bfdbfe",
+  og:"#ffedd5",ot:"#c2410c",tx:"#111827",td:"#4b5563",tm:"#9ca3af",ac:"#1e3a5f"};
 const cl={p:"6px 10px",b:`1px solid ${C.bd}`,f:12,va:"middle"};
 const ce={padding:cl.p,border:cl.b,fontSize:cl.f,verticalAlign:cl.va};
 const cL={...ce,background:C.hd,fontWeight:600,whiteSpace:"nowrap"};
@@ -287,7 +287,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   const[nn,snn]=useState("");const[sa,ssa]=useState(false);
   const addM=()=>{if(nn.trim()&&!p.mb[nn.trim()]){oc({...p,mb:{...p.mb,[nn.trim()]:0},md:{...(p.md||{}),[nn.trim()]:0}});snn("");ssa(false);}};
   const delM=n=>{const mb={...p.mb};delete mb[n];const md={...(p.md||{})};delete md[n];const mf={...(p.mf||{})};delete mf[n];oc({...p,mb,md,mf});};
-  const aR=()=>oc({...p,routes:[...(p.routes||[]),mkR()]});const uR=(i,r)=>{const rs=[...p.routes];rs[i]=r;oc({...p,routes:rs});};
+  const aR=()=>{const nr=mkR();if(p.addr&&p.addrLat){nr.el=p.addr;nr.elt=p.addrLat;nr.elg=p.addrLng;}oc({...p,routes:[...(p.routes||[]),nr]});};const uR=(i,r)=>{const rs=[...p.routes];rs[i]=r;oc({...p,routes:rs});};
   const rR=i=>{if(p.routes.length<=1)return;oc({...p,routes:p.routes.filter((_,j)=>j!==i)});};
   const ps=Object.values(p.mb).reduce((a,b)=>a+b,0),mn=Object.keys(p.mb),tD=mn.reduce((a,n)=>a+((p.md||{})[n]||0),0);
 
@@ -349,6 +349,10 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
         <input value={p.cl||""}onChange={e=>u("cl",e.target.value)}placeholder="발주처명"style={{fontSize:12,border:`1px solid ${C.bd}`,borderRadius:3,background:C.w,outline:"none",padding:"4px 8px",width:m?120:180}}/></div>
       <div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>정산월</span>
         <input type="month"value={p.pm||""}onChange={e=>u("pm",e.target.value)}style={{fontSize:11,border:`1px solid ${C.bd}`,borderRadius:3,background:C.yl,padding:"4px 6px",outline:"none",fontWeight:600,color:C.ac}}/></div></div>
+    <div style={{display:"flex",gap:4,alignItems:"center",marginBottom:12}}>
+      <span style={{fontSize:11,color:C.td,fontWeight:600,flexShrink:0}}>현장주소</span>
+      <div style={{flex:1}}><PlaceSearch value={p.addr||""} placeholder="현장 주소 검색" onSelect={(nm,lat,lng)=>oc({...p,addr:nm,addrLat:lat,addrLng:lng})}/></div>
+    </div>
     <div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 12px",marginBottom:12}}>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>{ST.map(s=><SB key={s.k}checked={!!p.st[s.k]}label={s.l}color={s.c}onClick={()=>tS(s.k)}/>)}</div>
       <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>수금</span>
@@ -432,6 +436,7 @@ const mkCRow = () => ({id:uid(),dt:"",cats:COST_CATS.map(()=>0),shop:"",memo:""}
 
 function CostP({projects:ps,onChange:oc,mobile:m}){
   const [openId,setOpenId] = useState(null);
+  const [showDetail,setShowDetail] = useState(false);
   const cp=ps.filter(p=>p.st?.contract);
   const ep=ps.filter(p=>p.st?.estimate&&!p.st?.contract);
   const allEa=ep.reduce((a,p)=>a+(p.ea||0),0);
@@ -464,6 +469,41 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    </div>
+    <div style={{marginBottom:16}}>
+      <button onClick={()=>setShowDetail(!showDetail)} style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"8px 14px",fontSize:11,fontWeight:600,color:C.ac,cursor:"pointer",width:"100%",textAlign:"left"}}>
+        {showDetail?"▼":"▶"} 상세 내역</button>
+      {showDetail&&<div style={{background:C.w,border:`1px solid ${C.bd}`,borderTop:"none",borderRadius:"0 0 4px 4px",padding:m?10:16,overflowX:"auto"}}>
+        {cp.length>0&&<><div style={{fontSize:12,fontWeight:700,color:C.ac,marginBottom:6}}>계약완료 ({cp.length}개)</div>
+        <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12,minWidth:600}}><thead><tr>
+          {["현장","기준금액","세금","인건비","예상경비","실제경비","예상수익","실제수익"].map(h=><th key={h}style={{...cL,fontSize:10,textAlign:h==="현장"?"left":"right"}}>{h}</th>)}
+        </tr></thead><tbody>
+          {cp.map(p=>{const c2=cP(p);const ac=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);const ep2=c2.b-c2.tx-c2.tl-c2.exp;const rp2=c2.b-c2.tx-c2.tl-ac;
+            return <tr key={p.id}><td style={{...ce,fontSize:11,fontWeight:600}}>{p.nm||"?"}</td>
+              <td style={{...cV,fontSize:11}}>{fmt(c2.b)}</td><td style={{...cV,fontSize:11,color:C.rt}}>{fmt(c2.tx)}</td>
+              <td style={{...cV,fontSize:11}}>{fmt(c2.tl)}</td><td style={{...cV,fontSize:11}}>{fmt(c2.exp)}</td>
+              <td style={{...cV,fontSize:11,color:"#d97706"}}>{fmt(ac)}</td>
+              <td style={{...cV,fontSize:11,color:ep2>=0?C.gt:C.rt}}>{fmt(ep2)}</td>
+              <td style={{...cV,fontSize:11,fontWeight:700,color:rp2>=0?C.gt:C.rt}}>{fmt(rp2)}</td></tr>;})}
+          <tr style={{background:C.hd}}><td style={{...cL,fontWeight:700,fontSize:11}}>합계</td>
+            <td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allBase)}</td><td style={{...cV,fontWeight:700,fontSize:11,color:C.rt}}>{fmt(allTx)}</td>
+            <td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allLb)}</td><td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allExp)}</td>
+            <td style={{...cV,fontWeight:700,fontSize:11,color:"#d97706"}}>{fmt(allAc)}</td>
+            <td style={{...cV,fontWeight:700,fontSize:11,color:estProfit>=0?C.gt:C.rt}}>{fmt(estProfit)}</td>
+            <td style={{...cV,fontWeight:800,fontSize:12,color:realProfit>=0?C.gt:C.rt}}>{fmt(realProfit)}</td></tr>
+        </tbody></table></>}
+        {ep.length>0&&<><div style={{fontSize:12,fontWeight:700,color:"#9333ea",marginBottom:6}}>견적 (미계약) ({ep.length}개)</div>
+        <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12}}><tbody>
+          {ep.map(p=><tr key={p.id}><td style={{...ce,fontSize:11}}>{p.nm||"?"}</td><td style={{...cV,fontSize:11}}>{fmt(p.ea||0)}</td></tr>)}
+          <tr style={{background:C.hd}}><td style={{...cL,fontWeight:700,fontSize:11}}>합계</td><td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allEa)}</td></tr>
+        </tbody></table></>}
+        <div style={{padding:10,background:C.bg,borderRadius:6,fontSize:11,color:C.td,lineHeight:1.8}}>
+          <strong style={{color:C.ac}}>계산식</strong><br/>
+          예상수익 = 기준금액 − 세금 − 인건비 − 예상경비<br/>
+          실제수익 = 기준금액 − 세금 − 인건비 − 실제경비<br/>
+          경비여유 = (예상경비 − 실제경비) ÷ 예상경비 × 100<br/>
+          <span style={{color:C.tm}}>* 계약완료 현장만 수익에 반영</span></div>
+      </div>}
     </div>
     {ps.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>현장이 없습니다</div>:
     <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -551,6 +591,54 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
   </div>);
 }
 
+/* ── Calendar ── */
+function CalP({projects:ps,mobile:m}){
+  const yr=new Date().getFullYear();
+  const[sm,ssm]=useState(new Date().getMonth()+1);
+  const mk=`${yr}-${String(sm).padStart(2,"0")}`;
+  const allSch=[];
+  ps.forEach(p=>{(p.sch||[]).forEach(s=>{const sd=s.sd||s.date||"";const ed=s.ed||"";
+    if(sd.startsWith(mk)||ed.startsWith(mk)||(sd<mk&&ed>=mk))
+      allSch.push({...s,pnm:p.nm||"미입력",pcl:p.cl||"",pid:p.id});
+  });});
+  allSch.sort((a,b)=>(a.sd||a.date||"").localeCompare(b.sd||b.date||""));
+  const done=allSch.filter(s=>s.dn).length;
+  return(<div>
+    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>캘린더</div>
+    <div style={{display:"flex",gap:4,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+      {[1,2,3,4,5,6,7,8,9,10,11,12].map(v=>{
+        const cnt=ps.reduce((a,p)=>(p.sch||[]).filter(s=>{const sd=s.sd||s.date||"";return sd.startsWith(`${yr}-${String(v).padStart(2,"0")}`);}).length+a,0);
+        return <button key={v}onClick={()=>ssm(v)}style={{padding:m?"6px 12px":"8px 16px",borderRadius:4,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",gap:4,
+          background:v===sm?C.ac:C.w,color:v===sm?"#fff":C.tx,border:`1.5px solid ${v===sm?C.ac:C.bd}`}}>
+          {v}월{cnt>0&&<span style={{background:v===sm?"#fff":C.ac,color:v===sm?C.ac:"#fff",fontSize:9,fontWeight:800,borderRadius:99,width:16,height:16,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{cnt}</span>}</button>;})}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:m?"1fr":"1fr 1fr",gap:8,marginBottom:16}}>
+      {[{l:`${sm}월 일정`,v:`${allSch.length}건`,c:C.ac},{l:"완료",v:`${done}/${allSch.length}`,c:done===allSch.length&&allSch.length>0?C.gt:C.bt}].map(x=>
+        <div key={x.l}style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    </div>
+    {allSch.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>{sm}월 일정이 없습니다</div>:
+    <div style={{display:"flex",flexDirection:"column",gap:6}}>
+      {allSch.map((s,i)=>{const sd=s.sd||s.date||"";const ed=s.ed||"";const dd=sd?sd.split("-").slice(1).join("/"):"";const de=ed?ed.split("-").slice(1).join("/"):"";
+        return(<div key={s.id+i}style={{background:C.w,border:`1px solid ${s.dn?C.bd:C.ac+"40"}`,borderRadius:4,padding:"10px 14px",opacity:s.dn?0.6:1}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+                <span style={{fontSize:9,padding:"2px 6px",borderRadius:3,background:C.ac+"18",color:C.ac,fontWeight:700}}>{s.pnm}</span>
+                {s.pcl&&<span style={{fontSize:9,color:C.tm}}>{s.pcl}</span>}
+              </div>
+              <div style={{fontSize:13,fontWeight:600,color:C.tx,textDecoration:s.dn?"line-through":"none"}}>{s.ct||"내용 없음"}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.ac}}>{dd}</div>
+              {de&&de!==dd&&<div style={{fontSize:10,color:C.tm}}>~{de}</div>}
+              {s.dn&&<span style={{fontSize:9,color:C.gt,fontWeight:600}}>완료</span>}
+            </div>
+          </div>
+        </div>);})}
+    </div>}
+  </div>);
+}
+
 /* ── Vehicle Management ── */
 const mkV=()=>({id:uid(),nm:"",plate:"",fe:11.0,fp:1650,sl:"",slt:0,slg:0});
 function VehP({vehicles:vs,onChange:oc,mobile:m}){
@@ -594,16 +682,18 @@ function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange,defs,onDefsChange
   return(<div><div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>설정</div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>현장 기본값</div>
-      <div style={{padding:12}}><div style={{fontSize:11,color:C.tm,marginBottom:8}}>새 현장 추가 시 자동 적용되는 기본값</div>
-        <table style={{width:"100%",borderCollapse:"collapse",maxWidth:400}}><tbody>
-          <FR label="비율%"><NI value={defs.rt}onChange={v=>uDef("rt",v)}/></FR>
-          <FR label="세금%"><NI value={defs.tx}onChange={v=>uDef("tx",v)}/></FR>
-          <FR label="인원"><NI value={defs.ps}onChange={v=>uDef("ps",v)}/></FR>
-          <FR label="평일단가"><NI value={defs.wc}onChange={v=>uDef("wc",v)}/></FR>
-          <FR label="복귀단가"><NI value={defs.rc}onChange={v=>uDef("rc",v)}/></FR>
-          <FR label="검토인원"><NI value={defs.rp}onChange={v=>uDef("rp",v)}/></FR>
-          <FR label="왕복횟수"><NI value={defs.trips}onChange={v=>uDef("trips",v)}/></FR>
-        </tbody></table></div></div>
+      <div style={{padding:16}}><div style={{fontSize:11,color:C.tm,marginBottom:12}}>새 현장 추가 시 자동 적용</div>
+        <div style={{display:"grid",gridTemplateColumns:m?"1fr 1fr":"repeat(4,1fr)",gap:10}}>
+          {[{k:"rt",l:"비율",u:"%"},{k:"tx",l:"세금",u:"%"},{k:"ps",l:"인원",u:"명"},{k:"wc",l:"평일단가",u:"원"},{k:"rc",l:"복귀단가",u:"원"},{k:"rp",l:"검토인원",u:"명"},{k:"trips",l:"왕복횟수",u:"회"}].map(x=>
+            <div key={x.k} style={{background:C.bg,borderRadius:6,padding:"10px 12px"}}>
+              <div style={{fontSize:10,color:C.tm,fontWeight:600,marginBottom:4}}>{x.l}</div>
+              <div style={{display:"flex",alignItems:"baseline",gap:2}}>
+                <input type="number"value={defs[x.k]||0}onChange={e=>uDef(x.k,Number(e.target.value)||0)}
+                  style={{border:"none",background:"transparent",fontSize:18,fontWeight:700,color:C.ac,outline:"none",width:"100%"}}/>
+                <span style={{fontSize:10,color:C.tm,flexShrink:0}}>{x.u}</span>
+              </div>
+            </div>)}
+        </div></div></div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>서버 동기화 (Firebase)</div>
       <div style={{padding:16}}><div style={{fontSize:12,color:C.td,marginBottom:10,lineHeight:1.6}}>Firebase Realtime Database URL을 입력하면 서버에 자동 저장됩니다.</div>
@@ -681,16 +771,16 @@ function App(){
   const uP=up=>sps(v=>v.map(p=>p.id===up.id?up:p));const dP=id=>{sps(v=>v.filter(p=>p.id!==id));if(ai===id)sai(null);};
   const ap=ps.find(p=>p.id===ai);
 
-  if(!ld||splash)return (<div style={{background:"linear-gradient(145deg, #2d5016 0%, #1a3008 100%)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',sans-serif"}}>
+  if(!ld||splash)return (<div style={{background:"linear-gradient(145deg, #1e3a5f 0%, #0f1f33 100%)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',sans-serif"}}>
     <div style={{width:80,height:80,borderRadius:20,background:"rgba(255,255,255,0.12)",backdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",marginBottom:20,border:"1px solid rgba(255,255,255,0.15)",boxShadow:"0 8px 32px rgba(0,0,0,0.3)"}}>
-      <svg width="48" height="48" viewBox="0 0 48 48"><path d="M8 40V12L16 28L24 8L32 28L40 12V40" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="24" cy="8" r="2.5" fill="#a5f3a5"/></svg>
+      <svg width="48" height="48" viewBox="0 0 48 48"><path d="M8 40V12L16 28L24 8L32 28L40 12V40" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/><circle cx="24" cy="8" r="2.5" fill="#60a5fa"/></svg>
     </div>
     <div style={{fontSize:28,fontWeight:800,color:"#fff",letterSpacing:3,marginBottom:4}}>미도T&C</div>
     <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",letterSpacing:1}}>현장 경비 관리</div>
-    <div style={{marginTop:28,width:32,height:32,border:"3px solid rgba(255,255,255,0.15)",borderTopColor:"#a5f3a5",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+    <div style={{marginTop:28,width:32,height:32,border:"3px solid rgba(255,255,255,0.15)",borderTopColor:"#60a5fa",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
     <style>{`@keyframes spin{to{transform:rotate(360deg);}}`}</style></div>);
 
-  if(locked)return (<div style={{background:"linear-gradient(145deg, #2d5016 0%, #1a3008 100%)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',sans-serif"}}>
+  if(locked)return (<div style={{background:"linear-gradient(145deg, #1e3a5f 0%, #0f1f33 100%)",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Pretendard',sans-serif"}}>
     <div style={{fontSize:24,fontWeight:800,color:"#fff",letterSpacing:2,marginBottom:6}}>Mido T&C</div>
     <div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginBottom:30}}>현장 경비 관리</div>
     <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -704,12 +794,17 @@ function App(){
   const nb=(l,t)=><button onClick={()=>{spg(t);sai(null);}}style={{padding:m?"4px 10px":"6px 16px",fontSize:m?11:13,fontWeight:700,cursor:"pointer",borderRadius:4,
     background:pg===t&&!ai?C.ac:"transparent",color:pg===t&&!ai?"#fff":C.td,border:`1px solid ${pg===t&&!ai?C.ac:"transparent"}`}}>{l}</button>;
 
-  return(<div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Pretendard',-apple-system,sans-serif"}}>
-    <style>{`@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');*{box-sizing:border-box;margin:0;padding:0;}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}table{table-layout:auto;}`}</style>
+  const PAGES=["home","cost","vehicle","payroll","calendar","settings"];
+  const swRef=useRef({x:0,y:0});
+  const onTS=e=>{swRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+  const onTE=e=>{if(ai)return;const dx=e.changedTouches[0].clientX-swRef.current.x;const dy=Math.abs(e.changedTouches[0].clientY-swRef.current.y);
+    if(Math.abs(dx)>80&&dy<100){const ci=PAGES.indexOf(pg);if(dx<0&&ci<PAGES.length-1)spg(PAGES[ci+1]);if(dx>0&&ci>0)spg(PAGES[ci-1]);}};
+
+  return(<div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Pretendard',-apple-system,sans-serif"}} onTouchStart={onTS} onTouchEnd={onTE}>    <style>{`@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');*{box-sizing:border-box;margin:0;padding:0;}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}table{table-layout:auto;}`}</style>
     <div style={{background:C.w,borderBottom:`2px solid ${C.ac}`,padding:m?"6px 12px":"8px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
       <div style={{display:"flex",alignItems:"center",gap:m?3:6}}>
         <span style={{fontSize:m?13:17,fontWeight:800,color:C.ac,cursor:"pointer",marginRight:m?2:10}}onClick={()=>{spg("home");sai(null);}}>{m?"미도T&C":"미도T&C 현장 경비 관리"}</span>
-        {nb("현장","home")}{nb("비용","cost")}{nb("차량","vehicle")}{nb("급여","payroll")}{nb(m?"⚙":"설정","settings")}
+        {nb("현장","home")}{nb("비용","cost")}{nb("차량","vehicle")}{nb("급여","payroll")}{nb("캘린더","calendar")}{nb(m?"⚙":"설정","settings")}
         {fu&&<span style={{width:6,height:6,borderRadius:99,background:C.gt,marginLeft:2}}title="서버연결"/>}</div>
       <Bn onClick={aP}bg={C.ac}small={m}style={{borderRadius:4}}>+ {m?"추가":"현장추가"}</Bn></div>
     <div style={{maxWidth:1400,margin:"0 auto",padding:m?"10px 8px":"16px 12px"}}>
@@ -717,6 +812,7 @@ function App(){
       :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
       :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
       :pg==="payroll"?<PayP projects={ps}mobile={m}/>
+      :pg==="calendar"?<CalP projects={ps}mobile={m}/>
       :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}defs={defs}onDefsChange={setDefs}/>
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
     </div></div>);
