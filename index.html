@@ -46,16 +46,16 @@ const cm = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.get
 const fmt = n => `₩${Math.round(n).toLocaleString()}`;
 function useM(bp=768){const[m,s]=useState(window.innerWidth<bp);useEffect(()=>{const h=()=>s(window.innerWidth<bp);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[bp]);return m;}
 
-const DEF_SETTINGS={rt:70,tx:20,wc:70000,rc:15000,ps:3,rp:1,trips:1};
+const DEF_SETTINGS={rt:70,tx:20,wc:70000,rc:15000,cwc:50000,ps:3,rp:1,trips:1};
 const mkR=()=>({id:uid(),vn:"",sl:"",el:"",slt:0,slg:0,elt:0,elg:0,dk:0,tw:0,tm:0,fp:1650,fe:11.0});
 const mkS=()=>({id:uid(),sd:"",ed:"",ct:"",dn:false});
-const mkP=(df)=>{const d={...DEF_SETTINGS,...(df||{})};return{id:uid(),nm:"",cl:"",ea:0,ca:0,rt:d.rt,tx:d.tx,tt:"출장",wc:d.wc,rc:d.rc,rd:0,rp:d.rp,wd:0,rtd:0,trips:d.trips,ps:d.ps,pm:cm(),
+const mkP=(df)=>{const d={...DEF_SETTINGS,...(df||{})};return{id:uid(),nm:"",cl:"",ea:0,ca:0,rt:d.rt,tx:d.tx,tt:"출장",wc:d.wc,cwc:d.cwc||50000,rc:d.rc,rd:0,rp:d.rp,wd:0,rtd:0,trips:d.trips,ps:d.ps,pm:cm(),
   routes:[mkR()],mb:Object.fromEntries(DM.map(n=>[n,0])),md:Object.fromEntries(DM.map(n=>[n,0])),mf:{},
   st:{},col:0,memo:"",mc:0,pc:0,prc:0,etc:0,sch:[],acl:[]};};
 
 function cR(r,t){const e=r.fe||11;if(!r.dk||e<=0)return{f:0,t:0,tt:0};const f=(r.dk*2/e)*r.fp,tl=r.tw*2;return{f:Math.round(f*t),t:Math.round(tl*t),tt:Math.round((f+tl)*t)};}
 function cP(p){
-  const b=p.ca*(p.rt/100),ac=p.wd*p.wc*p.ps+p.rtd*p.rc*p.ps,rv=p.rd*150000*p.rp;
+  const b=p.ca*(p.rt/100),dayRate=p.tt==="출퇴근"?(p.cwc||p.wc):p.wc,ac=p.wd*dayRate*p.ps+p.rtd*p.rc*p.ps,rv=p.rd*150000*p.rp;
   let vh=0;(p.routes||[]).forEach(r=>{vh+=cR(r,p.trips).tt;});
   const ex=(p.mc||0)+(p.pc||0)+(p.prc||0)+(p.etc||0),exp=ac+vh+rv+ex;
   const tx=b*((p.tx??20)/100),lb=b-exp-tx;
@@ -153,7 +153,7 @@ function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mo
   const loadVeh=(v)=>{
     const nr={...r,vn:v.plate||v.nm,fe:v.fe,fp:v.fp};
     if(v.sl&&v.slt){nr.sl=v.sl;nr.slt=v.slt;nr.slg=v.slg;}
-    u(nr);setShowVeh(false);};
+    setShowVeh(false);autoCalc(nr);};
   const autoCalc=async(nr)=>{
     const hasS=nr.slt!=null&&nr.slt!==0&&nr.slg!=null&&nr.slg!==0;
     const hasE=nr.elt!=null&&nr.elt!==0&&nr.elg!=null&&nr.elg!==0;
@@ -230,7 +230,7 @@ function SchSec({sch:ss,onChange:oc,mobile:m}){
 function PayP({projects:ps,mobile:m}){
   const[sm,ssm]=useState(()=>{const v=new Date().getMonth()+1;return v>=3?v:3;});const[cn,scn]=useState(null);
   const yr=new Date().getFullYear(),mk=`${yr}-${String(sm).padStart(2,"0")}`;
-  const mp=ps.filter(p=>(p.pm||"")===mk);const am={};
+  const mp=ps.filter(p=>(p.pm||"")===mk&&p.st?.contract);const am={};
   mp.forEach(p=>{const c=cP(p);Object.entries(p.mb||{}).forEach(([n,pc])=>{
     if(pc<=0&&!((p.md||{})[n]>0)&&!((p.mf||{})[n]>0))return;if(!am[n])am[n]={rows:[],td:0,ta:0};
     const d=(p.md||{})[n]||0,a=c.ma[n]||0;am[n].rows.push({pj:p.nm||"이름없음",cl:p.cl||"-",d,a});am[n].td+=d;am[n].ta+=a;});});
@@ -299,7 +299,8 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   </tbody></table>;
   const acSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
     <FR label="출장구분"><select value={p.tt}onChange={e=>u("tt",e.target.value)}style={{...ip,textAlign:"left",cursor:"pointer"}}><option>출장</option><option>출퇴근</option></select></FR>
-    <FR label="인원"><NI value={p.ps}onChange={v=>u("ps",v)}/></FR><FR label="평일단가"><NI value={p.wc}onChange={v=>u("wc",v)}/></FR>
+    <FR label="인원"><NI value={p.ps}onChange={v=>u("ps",v)}/></FR>
+    <FR label={p.tt==="출퇴근"?"출퇴근단가":"평일단가"}><NI value={p.tt==="출퇴근"?(p.cwc||50000):p.wc}onChange={v=>p.tt==="출퇴근"?u("cwc",v):u("wc",v)}/></FR>
     <FR label="복귀단가"><NI value={p.rc}onChange={v=>u("rc",v)}/></FR><FR label="작업일수"><NI value={p.wd}onChange={v=>u("wd",v)}/></FR>
     <FR label="복귀일수"><NI value={p.rtd}onChange={v=>u("rtd",v)}/></FR><FR label="왕복횟수"><NI value={p.trips}onChange={v=>u("trips",v)}/></FR>
   </tbody></table>;
@@ -513,7 +514,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
         const realTotal=catTotals.reduce((a,v)=>a+v,0);
         const estPf=c.b-c.tx-c.tl-c.exp;
         const realPf=c.b-c.tx-c.tl-realTotal;
-        const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
+        const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;const expRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
         return (
           <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
             {/* 현장 헤더 (클릭으로 열고닫기) */}
@@ -527,7 +528,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
               <div style={{display:"flex",gap:m?8:16,alignItems:"center",flexWrap:"wrap"}}>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>경비 </span><strong>{fmt(realTotal)}</strong></span>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>예상 </span>{fmt(c.exp)}</span>
-                <span style={{fontSize:11}}><span style={{opacity:0.7}}>여유 </span><strong style={{color:open?(pRate>=0?"#a5f3a5":"#fca5a5"):(pRate>=0?C.gt:C.rt)}}>{pRate}%</strong></span>
+                <span style={{fontSize:11}}><span style={{opacity:0.7}}>경비여유 </span><strong style={{color:open?(expRate>=0?"#a5f3a5":"#fca5a5"):(expRate>=0?C.gt:C.rt)}}>{expRate}%</strong></span>
                 <span style={{fontSize:12,fontWeight:700,color:open?(realPf>=0?"#a5f3a5":"#fca5a5"):(realPf>=0?C.gt:C.rt)}}>{fmt(realPf)}</span>
               </div>
             </div>
@@ -642,7 +643,7 @@ function CalP({projects:ps,mobile:m}){
         {cells.map((c,i)=>{const isToday=c.cur&&`${mk}-${String(c.d).padStart(2,"0")}`===todayStr;
           const isSel=c.cur&&c.d===selDay;const evts=c.cur?evMap[c.d]||[]:[];const dow=i%7;
           return <div key={i} onClick={()=>{if(c.cur)setSelDay(c.d===selDay?null:c.d);}}
-            style={{padding:m?"4px 2px":"6px 4px",minHeight:m?48:64,borderTop:`1px solid ${C.bd}`,borderRight:(i+1)%7!==0?`1px solid ${C.bd+"60"}`:"none",
+            style={{padding:m?"4px 2px":"6px 4px",minHeight:m?56:64,borderTop:`1px solid ${C.bd}`,borderRight:(i+1)%7!==0?`1px solid ${C.bd+"60"}`:"none",
               background:isSel?C.ac+"12":isToday?"#eff6ff":c.cur?"#fff":"#f9fafb",cursor:c.cur?"pointer":"default",position:"relative"}}>
             <div style={{fontSize:m?11:12,fontWeight:isToday||isSel?800:500,textAlign:"center",marginBottom:2,
               color:!c.cur?"#d1d5db":isToday?"#fff":isSel?C.ac:dow===0?"#ef4444":dow===6?"#3b82f6":C.tx}}>
@@ -719,7 +720,7 @@ function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange,defs,onDefsChange
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>현장 기본값</div>
       <div style={{padding:16}}><div style={{fontSize:11,color:C.tm,marginBottom:12}}>새 현장 추가 시 자동 적용</div>
         <div style={{display:"grid",gridTemplateColumns:m?"1fr 1fr":"repeat(4,1fr)",gap:10}}>
-          {[{k:"rt",l:"비율",u:"%"},{k:"tx",l:"세금",u:"%"},{k:"ps",l:"인원",u:"명"},{k:"wc",l:"평일단가",u:"원"},{k:"rc",l:"복귀단가",u:"원"},{k:"rp",l:"검토인원",u:"명"},{k:"trips",l:"왕복횟수",u:"회"}].map(x=>
+          {[{k:"rt",l:"비율",u:"%"},{k:"tx",l:"세금",u:"%"},{k:"ps",l:"인원",u:"명"},{k:"wc",l:"출장 평일단가",u:"원"},{k:"cwc",l:"출퇴근 평일단가",u:"원"},{k:"rc",l:"복귀단가",u:"원"},{k:"rp",l:"검토인원",u:"명"},{k:"trips",l:"왕복횟수",u:"회"}].map(x=>
             <div key={x.k} style={{background:C.bg,borderRadius:6,padding:"10px 12px"}}>
               <div style={{fontSize:10,color:C.tm,fontWeight:600,marginBottom:4}}>{x.l}</div>
               <div style={{display:"flex",alignItems:"baseline",gap:2}}>
@@ -792,6 +793,10 @@ function App(){
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(FK,fu);}catch{}})();},[fu,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(DK,JSON.stringify(defs));}catch{}})();},[defs,ld]);
   useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>{fbS(fu,ps);fbSV(fu,vs);},2000);return()=>clearTimeout(t);},[ps,vs,ld,fu]);
+  useEffect(()=>{if(!fu)return;const h=()=>{try{fetch(`${fu}/projects.json`,{method:"PUT",body:JSON.stringify(ps),headers:{"Content-Type":"application/json"},keepalive:true});fetch(`${fu}/vehicles.json`,{method:"PUT",body:JSON.stringify(vs),headers:{"Content-Type":"application/json"},keepalive:true});}catch{}};window.addEventListener("beforeunload",h);window.addEventListener("pagehide",h);return()=>{window.removeEventListener("beforeunload",h);window.removeEventListener("pagehide",h);};},[ps,vs,fu]);
+  useEffect(()=>{if(!ld||!fu)return;(async()=>{try{const dt=await fbG(fu);const vt=await fbGV(fu);
+    if(dt){const arr=Array.isArray(dt)?dt:Object.values(dt);if(arr.length>0)sps(arr);}
+    if(vt&&Array.isArray(vt)&&vt.length>0)svs(vt);}catch{}})();},[ld,fu]);
 
   const hS=async d=>{if(!fu)return;sss({ok:false,msg:"동기화중..."});
     if(d==="up"){const ok=await fbS(fu,ps);await fbSV(fu,vs);sss({ok,msg:ok?"✓업로드완료":"✗실패"});}
