@@ -755,8 +755,20 @@ function VehP({vehicles:vs,onChange:oc,mobile:m}){
 }
 
 /* ── Settings ── */
-function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange,defs,onDefsChange}){const[iu,siu]=useState(fu);
+function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange,defs,onDefsChange,projects:pjs}){const[iu,siu]=useState(fu);
   const[showPw,setShowPw]=useState(false);const[newPw,setNewPw]=useState("");const[pwMsg,setPwMsg]=useState("");
+  const[stUsage,setStUsage]=useState(null);const[stLoading,setStLoading]=useState(false);
+  const checkStorage=async()=>{setStLoading(true);
+    try{const r=await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?prefix=projects%2F`);
+      const d=await r.json();const items=d.items||[];
+      let total=0;const byProject={};
+      items.forEach(it=>{const sz=parseInt(it.size||0);total+=sz;const parts=it.name.split("/");const pid=parts[1]||"unknown";
+        if(!byProject[pid])byProject[pid]={count:0,size:0};byProject[pid].count++;byProject[pid].size+=sz;});
+      setStUsage({total,count:items.length,byProject});}catch{setStUsage({total:0,count:0,byProject:{}});}
+    setStLoading(false);};
+  useEffect(()=>{checkStorage();},[]);
+  const MAX_STORAGE=5*1024*1024*1024;
+  const fmtSz=(b)=>{if(b<1024)return b+"B";if(b<1024*1024)return(b/1024).toFixed(0)+"KB";if(b<1024*1024*1024)return(b/1024/1024).toFixed(1)+"MB";return(b/1024/1024/1024).toFixed(2)+"GB";};
   const uDef=(k,v)=>onDefsChange({...defs,[k]:v});
   return(<div><div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>설정</div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
@@ -790,6 +802,35 @@ function SetP({fu,sfu,onS,onD,onU,ss,mobile:m,appPw,onPwChange,defs,onDefsChange
       <div style={{padding:16,display:"flex",gap:8,flexWrap:"wrap"}}>
         <Bn onClick={onD}bg={C.bt}>JSON 내보내기</Bn>
         <label style={{background:"#d97706",color:"#fff",borderRadius:3,padding:"5px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>JSON 불러오기<input type="file"accept=".json"onChange={onU}style={{display:"none"}}/></label></div></div>
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden",marginBottom:16}}>
+      <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>파일 저장소</span><button onClick={checkStorage}disabled={stLoading}style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",borderRadius:3,padding:"2px 8px",fontSize:10,fontWeight:600,cursor:"pointer"}}>{stLoading?"확인중...":"새로고침"}</button>
+      </div>
+      <div style={{padding:16}}>
+        {stUsage?<><div style={{marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+            <span style={{fontSize:14,fontWeight:700,color:C.ac}}>{fmtSz(stUsage.total)}</span>
+            <span style={{fontSize:11,color:C.tm}}>/ {fmtSz(MAX_STORAGE)} ({(stUsage.total/MAX_STORAGE*100).toFixed(1)}%)</span>
+          </div>
+          <div style={{background:"#e5e7eb",borderRadius:99,height:10,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:99,background:stUsage.total/MAX_STORAGE>0.8?C.rt:stUsage.total/MAX_STORAGE>0.5?"#f59e0b":C.bt,
+              width:`${Math.max(1,stUsage.total/MAX_STORAGE*100)}%`,transition:"width 0.3s"}}/></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+            <span style={{fontSize:10,color:C.tm}}>파일 {stUsage.count}개</span>
+            <span style={{fontSize:10,color:C.tm}}>남은 용량: {fmtSz(MAX_STORAGE-stUsage.total)}</span>
+          </div>
+        </div>
+        {Object.keys(stUsage.byProject).length>0&&<div style={{borderTop:`1px solid ${C.bd}`,paddingTop:10}}>
+          <div style={{fontSize:10,color:C.tm,fontWeight:600,marginBottom:6}}>현장별 사용량</div>
+          {Object.entries(stUsage.byProject).map(([pid,v])=>{
+            const pName=(pjs||[]).find(p=>p.id===pid)?.nm||pid.slice(0,8)+"...";return(
+            <div key={pid}style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:`1px solid ${C.bd}30`}}>
+              <span style={{fontSize:11,color:C.td}}>{pName} ({v.count}개)</span>
+              <span style={{fontSize:11,fontWeight:600,color:C.ac}}>{fmtSz(v.size)}</span>
+            </div>)})}
+        </div>}</>:<div style={{fontSize:11,color:C.tm,textAlign:"center"}}>로딩중...</div>}
+      </div>
+    </div>
     <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
       <div style={{background:C.ac,color:"#fff",padding:"8px 14px",fontSize:12,fontWeight:700}}>앱처럼 사용</div>
       <div style={{padding:16,fontSize:12,color:C.td,lineHeight:1.8}}>Safari/Chrome → 공유 → "홈 화면에 추가"로 앱 아이콘 생성</div></div>
@@ -897,7 +938,7 @@ function App(){
       :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
       :pg==="payroll"?<PayP projects={ps}mobile={m}/>
       :pg==="calendar"?<CalP projects={ps}mobile={m}/>
-      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}defs={defs}onDefsChange={setDefs}/>
+      :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}defs={defs}onDefsChange={setDefs}projects={ps}/>
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
     </div></div>);
 }
