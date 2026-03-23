@@ -319,40 +319,6 @@ function PayP({projects:ps,mobile:m}){
             </tbody></table></div>);})}</div>}</div>);
 }
 
-/* ── File Attachments ── */
-function FileSec({pid,mobile:m}){
-  const[files,setFiles]=useState([]);const[uploading,setUploading]=useState(false);const[loaded,setLoaded]=useState(false);
-  useEffect(()=>{(async()=>{const fl=await fsList(pid);setFiles(fl);setLoaded(true);})();},[pid]);
-  const upload=async(e)=>{const f=e.target.files?.[0];if(!f)return;
-    if(f.size>10*1024*1024){alert("10MB 이하 파일만 가능합니다");return;}
-    setUploading(true);const r=await fsUpload(pid,f);
-    if(r)setFiles(v=>[...v,r]);setUploading(false);e.target.value="";};
-  const remove=async(f)=>{if(!window.confirm(`"${f.name}" 삭제할까요?`))return;
-    const ok=await fsDelete(f.path);if(ok)setFiles(v=>v.filter(x=>x.path!==f.path));};
-  const fmtSize=(b)=>b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`;
-  return(<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflow:"visible",marginBottom:12}}>
-    <div style={{background:C.ac,color:"#fff",padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <span>첨부파일 ({files.length})</span>
-      <label style={{background:"rgba(255,255,255,0.2)",borderRadius:3,padding:"2px 8px",fontSize:10,fontWeight:600,cursor:uploading?"wait":"pointer"}}>
-        {uploading?"업로드중...":"+파일"}<input type="file"accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"onChange={upload}style={{display:"none"}}disabled={uploading}/></label>
-    </div>
-    {!loaded?<div style={{padding:12,textAlign:"center",color:C.tm,fontSize:11}}>로딩중...</div>:
-    files.length===0?<div style={{padding:14,textAlign:"center",color:C.tm,fontSize:11}}>첨부파일이 없습니다</div>:
-    <div>{files.map(f=><div key={f.path} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderBottom:`1px solid ${C.bd}`}}>
-      <div style={{width:28,height:28,borderRadius:4,background:f.name.endsWith(".pdf")?"#fee2e2":f.name.match(/\.(jpg|jpeg|png)$/i)?"#dbeafe":"#e5e7eb",
-        display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,flexShrink:0,
-        color:f.name.endsWith(".pdf")?"#b91c1c":f.name.match(/\.(jpg|jpeg|png)$/i)?"#1d4ed8":"#4b5563"}}>
-        {f.name.endsWith(".pdf")?"PDF":f.name.match(/\.(jpg|jpeg|png)$/i)?"IMG":"FILE"}</div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:12,fontWeight:600,color:C.tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
-        <div style={{fontSize:10,color:C.tm}}>{fmtSize(f.size)}</div></div>
-      <a href={f.url} target="_blank" rel="noopener" style={{fontSize:10,color:C.bt,fontWeight:600,textDecoration:"none",flexShrink:0}}>열기</a>
-      <button onClick={()=>remove(f)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14,flexShrink:0}}
-        onMouseEnter={e=>e.currentTarget.style.color=C.rt} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button>
-    </div>)}</div>}
-  </div>);
-}
-
 /* ── Detail ── */
 function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   const c=cP(p),u=(k,v)=>oc({...p,[k]:v});
@@ -439,7 +405,6 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
       <input value={p.memo||""}onChange={e=>u("memo",e.target.value)}placeholder="메모"style={{width:"100%",marginTop:6,border:`1px solid ${C.bd}`,borderRadius:3,padding:"4px 8px",fontSize:12,outline:"none"}}/></div>
     <SchSec sch={p.sch||[]}onChange={v=>u("sch",v)}mobile={m}/>
     <FileSec projectId={p.id}mobile={m}/>
-    <FileSec pid={p.id}mobile={m}/>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(5,1fr)",gap:6,marginBottom:12}}>
       {[{l:"기준금액",v:fmt(c.b)},{l:"경비",v:fmt(c.exp)},{l:`세금(${p.tx??20}%)`,v:fmt(c.tx),bg:C.rd,c:C.rt},{l:"인건비",v:fmt(c.lb),bg:c.lb<0?C.rd:C.gn,c:c.lb<0?C.rt:C.gt},{l:"잔액",v:fmt(c.rm),bg:c.rm<0?C.rd:C.gn,c:c.rm<0?C.rt:C.gt}].map(x=>
         <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"6px 10px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c||C.tx}}>{x.v}</div></div>)}</div>
