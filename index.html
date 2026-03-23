@@ -205,6 +205,48 @@ function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mo
     </tbody></table></div>);
 }
 
+/* ── File Upload (Firebase Storage) ── */
+const FB_BUCKET="midotnc.firebasestorage.app";
+function FileSec({projectId:pid,mobile:m}){
+  const[files,setFiles]=useState([]);const[uploading,setUploading]=useState(false);const[msg,setMsg]=useState("");
+  const loadFiles=async()=>{
+    try{const r=await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?prefix=projects%2F${pid}%2F&delimiter=%2F`);
+      const d=await r.json();setFiles((d.items||[]).map(f=>({name:f.name.split("/").pop(),path:f.name,size:f.size||0})));}catch{}};
+  useEffect(()=>{if(pid)loadFiles();},[pid]);
+  const upload=async(e)=>{const f=e.target.files?.[0];if(!f)return;
+    if(f.size>10*1024*1024){setMsg("10MB 이하만 가능");setTimeout(()=>setMsg(""),3000);return;}
+    setUploading(true);setMsg("업로드중...");
+    try{const path=`projects/${pid}/${f.name}`;
+      await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?uploadType=media&name=${encodeURIComponent(path)}`,
+        {method:"POST",headers:{"Content-Type":f.type||"application/octet-stream"},body:f});
+      setMsg("✓ 완료");await loadFiles();}catch(err){setMsg("실패");}
+    setUploading(false);e.target.value="";setTimeout(()=>setMsg(""),2000);};
+  const getUrl=(path)=>`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(path)}?alt=media`;
+  const del=async(path,name)=>{if(!window.confirm(`"${name}" 삭제할까요?`))return;
+    try{await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(path)}`,{method:"DELETE"});await loadFiles();}catch{}};
+  const fmtSize=(b)=>{if(!b)return"";if(b<1024)return b+"B";if(b<1024*1024)return(b/1024).toFixed(0)+"KB";return(b/1024/1024).toFixed(1)+"MB";};
+  const getIcon=(name)=>{const e=name.split(".").pop().toLowerCase();if(e==="pdf")return"📄";if(["jpg","jpeg","png","gif"].includes(e))return"🖼";if(["xls","xlsx"].includes(e))return"📊";if(["doc","docx"].includes(e))return"📝";return"📎";};
+  return(<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflow:"visible",marginBottom:12}}>
+    <div style={{background:C.ac,color:"#fff",padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span>첨부파일 ({files.length})</span>
+      <div style={{display:"flex",alignItems:"center",gap:6}}>
+        {msg&&<span style={{fontSize:10,fontWeight:600}}>{msg}</span>}
+        <label style={{background:"rgba(255,255,255,0.2)",borderRadius:3,padding:"2px 8px",fontSize:10,fontWeight:600,cursor:uploading?"not-allowed":"pointer",opacity:uploading?0.5:1}}>
+          {uploading?"업로드중...":"+ 파일"}<input type="file"accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.hwp"onChange={upload}disabled={uploading}style={{display:"none"}}/></label>
+      </div>
+    </div>
+    {files.length===0?<div style={{padding:16,textAlign:"center",color:C.tm,fontSize:11}}>첨부된 파일이 없습니다</div>:
+    <div>{files.map((f,i)=>
+      <div key={i}style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderBottom:`1px solid ${C.bd}`,fontSize:12}}>
+        <span style={{fontSize:16}}>{getIcon(f.name)}</span>
+        <a href={getUrl(f.path)}target="_blank"rel="noopener"style={{flex:1,color:C.bt,fontWeight:600,textDecoration:"none",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</a>
+        <span style={{fontSize:10,color:C.tm,flexShrink:0}}>{fmtSize(f.size)}</span>
+        <button onClick={()=>del(f.path,f.name)}style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14,flexShrink:0}}
+          onMouseEnter={e=>e.currentTarget.style.color=C.rt}onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button>
+      </div>)}</div>}
+  </div>);
+}
+
 /* ── Schedule ── */
 function SchSec({sch:ss,onChange:oc,mobile:m}){
   const add=()=>oc([...ss,mkS()]);const up=(i,s)=>{const a=[...ss];a[i]=s;oc(a);};const rm=i=>oc(ss.filter((_,j)=>j!==i));
@@ -275,6 +317,40 @@ function PayP({projects:ps,mobile:m}){
               <tr><td colSpan={m?1:2}style={{...cL,color:C.rt}}>3.3%</td><td style={ce}></td><td style={{...cV,fontWeight:700,color:C.rt}}>{fmt(t3)}</td></tr>
               <tr style={{background:C.bl}}><td colSpan={m?1:2}style={{...cL,fontWeight:700,background:C.bl}}>실지급</td><td style={{...ce,background:C.bl}}></td><td style={{...cV,fontWeight:800,fontSize:m?14:16,color:C.bt,background:C.bl}}>{fmt(net)}</td></tr>
             </tbody></table></div>);})}</div>}</div>);
+}
+
+/* ── File Attachments ── */
+function FileSec({pid,mobile:m}){
+  const[files,setFiles]=useState([]);const[uploading,setUploading]=useState(false);const[loaded,setLoaded]=useState(false);
+  useEffect(()=>{(async()=>{const fl=await fsList(pid);setFiles(fl);setLoaded(true);})();},[pid]);
+  const upload=async(e)=>{const f=e.target.files?.[0];if(!f)return;
+    if(f.size>10*1024*1024){alert("10MB 이하 파일만 가능합니다");return;}
+    setUploading(true);const r=await fsUpload(pid,f);
+    if(r)setFiles(v=>[...v,r]);setUploading(false);e.target.value="";};
+  const remove=async(f)=>{if(!window.confirm(`"${f.name}" 삭제할까요?`))return;
+    const ok=await fsDelete(f.path);if(ok)setFiles(v=>v.filter(x=>x.path!==f.path));};
+  const fmtSize=(b)=>b>1024*1024?`${(b/1024/1024).toFixed(1)}MB`:`${Math.round(b/1024)}KB`;
+  return(<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflow:"visible",marginBottom:12}}>
+    <div style={{background:C.ac,color:"#fff",padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span>첨부파일 ({files.length})</span>
+      <label style={{background:"rgba(255,255,255,0.2)",borderRadius:3,padding:"2px 8px",fontSize:10,fontWeight:600,cursor:uploading?"wait":"pointer"}}>
+        {uploading?"업로드중...":"+파일"}<input type="file"accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip"onChange={upload}style={{display:"none"}}disabled={uploading}/></label>
+    </div>
+    {!loaded?<div style={{padding:12,textAlign:"center",color:C.tm,fontSize:11}}>로딩중...</div>:
+    files.length===0?<div style={{padding:14,textAlign:"center",color:C.tm,fontSize:11}}>첨부파일이 없습니다</div>:
+    <div>{files.map(f=><div key={f.path} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderBottom:`1px solid ${C.bd}`}}>
+      <div style={{width:28,height:28,borderRadius:4,background:f.name.endsWith(".pdf")?"#fee2e2":f.name.match(/\.(jpg|jpeg|png)$/i)?"#dbeafe":"#e5e7eb",
+        display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,flexShrink:0,
+        color:f.name.endsWith(".pdf")?"#b91c1c":f.name.match(/\.(jpg|jpeg|png)$/i)?"#1d4ed8":"#4b5563"}}>
+        {f.name.endsWith(".pdf")?"PDF":f.name.match(/\.(jpg|jpeg|png)$/i)?"IMG":"FILE"}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:12,fontWeight:600,color:C.tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.name}</div>
+        <div style={{fontSize:10,color:C.tm}}>{fmtSize(f.size)}</div></div>
+      <a href={f.url} target="_blank" rel="noopener" style={{fontSize:10,color:C.bt,fontWeight:600,textDecoration:"none",flexShrink:0}}>열기</a>
+      <button onClick={()=>remove(f)} style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:14,flexShrink:0}}
+        onMouseEnter={e=>e.currentTarget.style.color=C.rt} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button>
+    </div>)}</div>}
+  </div>);
 }
 
 /* ── Detail ── */
@@ -362,6 +438,8 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
       {p.ca>0&&<div style={{marginTop:6,background:"#eee",borderRadius:99,height:5,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/p.ca)*100)}%`,background:(p.col||0)>=p.ca?C.gt:C.bt}}/></div>}
       <input value={p.memo||""}onChange={e=>u("memo",e.target.value)}placeholder="메모"style={{width:"100%",marginTop:6,border:`1px solid ${C.bd}`,borderRadius:3,padding:"4px 8px",fontSize:12,outline:"none"}}/></div>
     <SchSec sch={p.sch||[]}onChange={v=>u("sch",v)}mobile={m}/>
+    <FileSec projectId={p.id}mobile={m}/>
+    <FileSec pid={p.id}mobile={m}/>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(5,1fr)",gap:6,marginBottom:12}}>
       {[{l:"기준금액",v:fmt(c.b)},{l:"경비",v:fmt(c.exp)},{l:`세금(${p.tx??20}%)`,v:fmt(c.tx),bg:C.rd,c:C.rt},{l:"인건비",v:fmt(c.lb),bg:c.lb<0?C.rd:C.gn,c:c.lb<0?C.rt:C.gt},{l:"잔액",v:fmt(c.rm),bg:c.rm<0?C.rd:C.gn,c:c.rm<0?C.rt:C.gt}].map(x=>
         <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"6px 10px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c||C.tx}}>{x.v}</div></div>)}</div>
@@ -769,6 +847,27 @@ async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:
 async function fbGV(u){try{const r=await fetch(`${u}/vehicles.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
 async function fbSV(u,d){try{await fetch(`${u}/vehicles.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
 
+/* ── Firebase Storage ── */
+const FB_BUCKET="midotnc.firebasestorage.app";
+async function fsUpload(pid,file){
+  try{const path=`projects/${pid}/${Date.now()}_${file.name}`;
+    const r=await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?uploadType=media&name=${encodeURIComponent(path)}`,
+      {method:"POST",headers:{"Content-Type":file.type||"application/octet-stream"},body:file});
+    if(!r.ok)throw new Error("upload fail");
+    const d=await r.json();const dl=`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(d.name)}?alt=media`;
+    return{name:file.name,path:d.name,url:dl,size:file.size,ts:Date.now()};}
+  catch(e){console.error("upload:",e);return null;}}
+async function fsList(pid){
+  try{const r=await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?prefix=${encodeURIComponent(`projects/${pid}/`)}&delimiter=/`);
+    if(!r.ok)return[];const d=await r.json();
+    return(d.items||[]).map(it=>({name:it.name.split("/").pop().replace(/^\d+_/,""),path:it.name,
+      url:`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(it.name)}?alt=media`,
+      size:parseInt(it.size||0),ts:parseInt(it.timeCreated||0)}));}
+  catch(e){console.error("list:",e);return[];}}
+async function fsDelete(path){
+  try{await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(path)}`,{method:"DELETE"});return true;}
+  catch{return false;}}
+
 /* ── App ── */
 function App(){
   const m=useM();const[ps,sps]=useState([]);const[vs,svs]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
@@ -836,9 +935,10 @@ function App(){
     background:pg===t&&!ai?C.ac:"transparent",color:pg===t&&!ai?"#fff":C.td,border:`1px solid ${pg===t&&!ai?C.ac:"transparent"}`}}>{l}</button>;
 
   const PAGES=["home","cost","vehicle","payroll","calendar","settings"];
-  const onTS=e=>{swRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY};};
+  const onTS=e=>{swRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};};
   const onTE=e=>{if(ai)return;const dx=e.changedTouches[0].clientX-swRef.current.x;const dy=Math.abs(e.changedTouches[0].clientY-swRef.current.y);
-    if(Math.abs(dx)>80&&dy<100){const ci=PAGES.indexOf(pg);if(dx<0&&ci<PAGES.length-1)spg(PAGES[ci+1]);if(dx>0&&ci>0)spg(PAGES[ci-1]);}};
+    const dt=Date.now()-swRef.current.t;const sx=swRef.current.x;
+    if(Math.abs(dx)>150&&dy<60&&dt<400&&(sx<40||sx>window.innerWidth-40)){const ci=PAGES.indexOf(pg);if(dx<0&&ci<PAGES.length-1)spg(PAGES[ci+1]);if(dx>0&&ci>0)spg(PAGES[ci-1]);}};
 
   return(<div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Pretendard',-apple-system,sans-serif"}} onTouchStart={onTS} onTouchEnd={onTE}>    <style>{`@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');*{box-sizing:border-box;margin:0;padding:0;}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}table{table-layout:auto;}`}</style>
     <div style={{background:C.w,borderBottom:`2px solid ${C.ac}`,padding:m?"6px 12px":"8px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
