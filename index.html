@@ -812,27 +812,6 @@ async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:
 async function fbGV(u){try{const r=await fetch(`${u}/vehicles.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
 async function fbSV(u,d){try{await fetch(`${u}/vehicles.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
 
-/* ── Firebase Storage ── */
-const FB_BUCKET="midotnc.firebasestorage.app";
-async function fsUpload(pid,file){
-  try{const path=`projects/${pid}/${Date.now()}_${file.name}`;
-    const r=await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?uploadType=media&name=${encodeURIComponent(path)}`,
-      {method:"POST",headers:{"Content-Type":file.type||"application/octet-stream"},body:file});
-    if(!r.ok)throw new Error("upload fail");
-    const d=await r.json();const dl=`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(d.name)}?alt=media`;
-    return{name:file.name,path:d.name,url:dl,size:file.size,ts:Date.now()};}
-  catch(e){console.error("upload:",e);return null;}}
-async function fsList(pid){
-  try{const r=await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?prefix=${encodeURIComponent(`projects/${pid}/`)}&delimiter=/`);
-    if(!r.ok)return[];const d=await r.json();
-    return(d.items||[]).map(it=>({name:it.name.split("/").pop().replace(/^\d+_/,""),path:it.name,
-      url:`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(it.name)}?alt=media`,
-      size:parseInt(it.size||0),ts:parseInt(it.timeCreated||0)}));}
-  catch(e){console.error("list:",e);return[];}}
-async function fsDelete(path){
-  try{await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/${encodeURIComponent(path)}`,{method:"DELETE"});return true;}
-  catch{return false;}}
-
 /* ── App ── */
 function App(){
   const m=useM();const[ps,sps]=useState([]);const[vs,svs]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
