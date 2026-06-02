@@ -637,6 +637,7 @@ function FinP({projects:ps, mobile:m}){
   const fp=ps.filter(p=>p.st?.invoice);
   
   const totalB=fp.reduce((a,p)=>a+cP(p).b,0);
+  const totalVat=Math.round(totalB*0.1);
   const totalTx=fp.reduce((a,p)=>a+cP(p).tx,0);
   const totalLb=fp.reduce((a,p)=>a+cP(p).tl,0);
   const totalExp=fp.reduce((a,p)=>a+cP(p).exp,0);
@@ -649,12 +650,13 @@ function FinP({projects:ps, mobile:m}){
   return(<div>
     <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>결산 (계산서 발행 완료)</div>
     
-    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:8}}>
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(5,1fr)",gap:8,marginBottom:8}}>
       {[{l:"완료 현장",v:`${fp.length}개`,c:C.tx},
         {l:"총 기준금액",v:fmt(totalB),c:C.ac},
+        {l:"납부할 부가세(10%)",v:fmt(totalVat),c:"#9333ea",bg:"#faf5ff"},
         {l:"총 세금",v:fmt(totalTx),c:C.rt},
         {l:"총 인건비",v:fmt(totalLb),c:C.gt}
-      ].map(x=><div key={x.l} style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
+      ].map(x=><div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
     </div>
@@ -671,13 +673,14 @@ function FinP({projects:ps, mobile:m}){
     
     {fp.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>계산서 발행이 완료된 현장이 없습니다</div>:
     <div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflowX:"auto"}}>
-      <table style={{width:"100%",borderCollapse:"collapse",minWidth:m?600:0}}>
+      <table style={{width:"100%",borderCollapse:"collapse",minWidth:m?700:0}}>
         <thead><tr>
-          {["현장명","정산월","기준금액","인건비","예상경비","실제경비","경비절감","실제수익"].map(h=><th key={h} style={{...cL,fontSize:11,textAlign:h==="현장명"?"left":"right"}}>{h}</th>)}
+          {["현장명","정산월","기준금액","부가세(10%)","인건비","예상경비","실제경비","경비절감","실제수익"].map(h=><th key={h} style={{...cL,fontSize:11,textAlign:h==="현장명"?"left":"right"}}>{h}</th>)}
         </tr></thead>
         <tbody>
           {fp.sort((a,b)=>(b.pm||"").localeCompare(a.pm||"")).map(p=>{
             const c2=cP(p);
+            const vat=Math.round(c2.b*0.1);
             const ac=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);
             const rp2=c2.b-c2.tx-c2.tl-ac;
             const sv=c2.exp-ac;
@@ -685,6 +688,7 @@ function FinP({projects:ps, mobile:m}){
               <td style={{...ce,fontSize:12,fontWeight:600}}>{p.nm||"미입력"}<br/><span style={{fontSize:10,color:C.td,fontWeight:400}}>{p.cl||"-"}</span></td>
               <td style={{...cV,fontSize:11,color:C.tm}}>{p.pm?`${parseInt(p.pm.split("-")[1])}월`:"-"}</td>
               <td style={{...cV,fontSize:12}}>{fmt(c2.b)}</td>
+              <td style={{...cV,fontSize:11,color:"#9333ea",fontWeight:600}}>{fmt(vat)}</td>
               <td style={{...cV,fontSize:11}}>{fmt(c2.tl)}</td>
               <td style={{...cV,fontSize:11}}>{fmt(c2.exp)}</td>
               <td style={{...cV,fontSize:11,color:"#d97706"}}>{fmt(ac)}</td>
