@@ -24,6 +24,8 @@ input[type=number]{-moz-appearance:textfield;}
 ::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}
 table{table-layout:auto;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.menu-scroll::-webkit-scrollbar { display: none; }
+.menu-scroll { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 </head>
 <body>
@@ -34,8 +36,6 @@ const storage={
   async set(k,v){localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));return true;}
 };
 const{useState,useEffect,useRef}=React;
-
-
 
 const SK = "mido-v11", FK = "mido-fb", VK = "mido-vehicles", DK = "mido-defaults";
 const DM = ["김진휘","정창용","김민준","이은석","김태완","정민용","이재호"];
@@ -120,7 +120,7 @@ function Sec({title:t,children:ch,extra:ex,open:df=true}){const[o,s]=useState(df
     <div onClick={()=>s(!o)}style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
       <span>{o?"▼":"▶"} {t}</span>{ex}</div>{o&&ch}</div>);}
 
-/* ── Place Search (카카오 REST API) ── */
+/* ── Place Search ── */
 function PlaceSearch({value,onSelect,placeholder}){
   const[q,sq]=useState(value);const[rs,srs]=useState([]);const[show,sshow]=useState(false);
   useEffect(()=>{sq(value);},[value]);
@@ -205,7 +205,7 @@ function RC({route:r,index:i,onUpdate:u,onRemove:rm,roundTrips:t,canRemove:cr,mo
     </tbody></table></div>);
 }
 
-/* ── File Upload (Firebase Storage) ── */
+/* ── File Upload ── */
 const FB_BUCKET="midotnc.firebasestorage.app";
 function FileSec({projectId:pid,mobile:m}){
   const[files,setFiles]=useState([]);const[uploading,setUploading]=useState(false);const[msg,setMsg]=useState("");
@@ -400,8 +400,8 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>{ST.map(s=><SB key={s.k}checked={!!p.st[s.k]}label={s.l}color={s.c}onClick={()=>tS(s.k)}/>)}</div>
       <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>수금</span>
         <div style={{background:C.yl,border:`1px solid ${C.bd}`,borderRadius:3}}><NI value={p.col}onChange={v=>u("col",v)}style={{width:110,padding:"4px 8px"}}/></div>
-        <span style={{fontSize:11,color:C.td}}>/ {fmt(p.ca)}</span></div>
-      {p.ca>0&&<div style={{marginTop:6,background:"#eee",borderRadius:99,height:5,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/p.ca)*100)}%`,background:(p.col||0)>=p.ca?C.gt:C.bt}}/></div>}
+        <span style={{fontSize:11,color:C.td}}>/ {fmt(c.b)}</span></div>
+      {c.b>0&&<div style={{marginTop:6,background:"#eee",borderRadius:99,height:5,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/c.b)*100)}%`,background:(p.col||0)>=c.b?C.gt:C.bt}}/></div>}
       <input value={p.memo||""}onChange={e=>u("memo",e.target.value)}placeholder="메모"style={{width:"100%",marginTop:6,border:`1px solid ${C.bd}`,borderRadius:3,padding:"4px 8px",fontSize:12,outline:"none"}}/></div>
     <SchSec sch={p.sch||[]}onChange={v=>u("sch",v)}mobile={m}/>
     <FileSec projectId={p.id}mobile={m}/>
@@ -450,14 +450,14 @@ function PL({projects:ps,onSelect:os,onDelete:od,mobile:m}){
           <div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:4}}>
             {ST.map(s=><span key={s.k}style={{padding:"1px 6px",borderRadius:3,fontSize:10,fontWeight:600,background:p.st?.[s.k]?s.c+"20":"#f0f0f0",color:p.st?.[s.k]?s.c:"#ccc"}}>{s.l}</span>)}
             <span style={{fontSize:10,fontWeight:700,color:pc(p),marginLeft:4}}>{pg}/4</span></div>
-          {p.ca>0&&<div style={{background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/p.ca)*100)}%`,background:C.bt}}/></div>}
+          {c2.b>0&&<div style={{background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/c2.b)*100)}%`,background:(p.col||0)>=c2.b?C.gt:C.bt}}/></div>}
         </div>);})}
     </div>):(<div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
       <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr style={{background:C.ac}}>
         {["","현장명","발주처","월","기준금액","인건비","진행","수금",""].map((h,i)=><th key={i}style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:"#fff",textAlign:[4,5].includes(i)?"right":[6,7].includes(i)?"center":"left",whiteSpace:"nowrap"}}>{h}</th>)}
       </tr></thead><tbody>
         {ps.length===0?<tr><td colSpan={9}style={{...ce,textAlign:"center",padding:"40px 10px",color:C.tm}}>현장을 추가해서 시작하세요</td></tr>
-        :ps.map((p,i)=>{const c2=cP(p),pg=cc(p),cp=p.ca>0?Math.min(100,((p.col||0)/p.ca)*100):0,pm=p.pm?`${parseInt(p.pm.split("-")[1])}월`:"-";return(
+        :ps.map((p,i)=>{const c2=cP(p),pg=cc(p),cp=c2.b>0?Math.min(100,((p.col||0)/c2.b)*100):0,pm=p.pm?`${parseInt(p.pm.split("-")[1])}월`:"-";return(
           <tr key={p.id}onClick={()=>os(p.id)}style={{cursor:"pointer",borderBottom:`1px solid ${C.bd}`}}onMouseEnter={e=>e.currentTarget.style.background="#f9f9f4"}onMouseLeave={e=>e.currentTarget.style.background=""}>
             <td style={{...ce,textAlign:"center",color:C.tm,fontSize:11,width:30}}>{i+1}</td>
             <td style={{...ce,fontWeight:700,fontSize:13}}>{p.nm||<span style={{color:C.tm}}>미입력</span>}{p.memo&&<div style={{fontSize:10,color:C.tm,fontWeight:400,marginTop:2}}>{p.memo}</div>}</td>
@@ -467,8 +467,8 @@ function PL({projects:ps,onSelect:os,onDelete:od,mobile:m}){
             <td style={{...ce,textAlign:"center",width:200,padding:"6px 4px"}}>
               <div style={{display:"flex",gap:3,justifyContent:"center",flexWrap:"wrap"}}>{ST.map(s=><span key={s.k}style={{padding:"2px 6px",borderRadius:3,fontSize:10,fontWeight:600,background:p.st?.[s.k]?s.c+"20":"#f0f0f0",color:p.st?.[s.k]?s.c:"#ccc",border:`1px solid ${p.st?.[s.k]?s.c+"40":"#e0e0e0"}`}}>{s.l}</span>)}</div>
               <div style={{fontSize:10,color:pc(p),fontWeight:700,marginTop:3}}>{pg}/4</div></td>
-            <td style={{...ce,textAlign:"center",width:90}}><div style={{fontSize:11,fontWeight:700,color:p.ca>0&&(p.col||0)>=p.ca?C.gt:C.td}}>{fmt(p.col||0)}</div>
-              {p.ca>0&&<div style={{marginTop:3,background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${cp}%`,background:cp>=100?C.gt:C.bt}}/></div>}</td>
+            <td style={{...ce,textAlign:"center",width:90}}><div style={{fontSize:11,fontWeight:700,color:c2.b>0&&(p.col||0)>=c2.b?C.gt:C.td}}>{fmt(p.col||0)}</div>
+              {c2.b>0&&<div style={{marginTop:3,background:"#eee",borderRadius:99,height:4,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${cp}%`,background:cp>=100?C.gt:C.bt}}/></div>}</td>
             <td style={{...ce,textAlign:"center",width:30,padding:0}}><button onClick={e=>{e.stopPropagation();if(window.confirm(`"${p.nm||"이 현장"}" 삭제할까요?`))od(p.id);}}style={{background:"none",border:"none",color:"#ccc",cursor:"pointer",fontSize:16,padding:"4px"}}onMouseEnter={e=>e.currentTarget.style.color=C.rt}onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>×</button></td>
           </tr>);})}
       </tbody></table></div>)}</div>);
@@ -499,7 +499,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
   const setCat=(pid,ri,ci,v)=>{const p=ps.find(x=>x.id===pid);if(!p)return;const a=[...(p.acl||[])];const row={...a[ri],cats:[...(a[ri].cats||COST_CATS.map(()=>0))]};row.cats[ci]=v;a[ri]=row;oc({...p,acl:a});};
 
   return (<div>
-    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>비용 / 수익 관리</div>
+    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>비용 관리 (진행중 포함)</div>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:8}}>
       {[{l:"견적금액(미계약)",v:fmt(allEa),c:"#9333ea"},{l:"기준금액(계약)",v:fmt(allBase),c:C.ac},{l:"세금",v:fmt(allTx),c:C.rt},{l:"인건비",v:fmt(allLb),c:C.gt}
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
@@ -560,7 +560,6 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
         const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;const expRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
         return (
           <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
-            {/* 현장 헤더 (클릭으로 열고닫기) */}
             <div onClick={()=>setOpenId(open?null:p.id)} style={{background:open?C.ac:C.hd,color:open?"#fff":C.tx,padding:"10px 14px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:6}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:11,opacity:0.6}}>{open?"▼":"▶"}</span>
@@ -577,7 +576,6 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
             </div>
 
             {open && (<div>
-              {/* 요약 바 */}
               <div style={{display:"grid",gridTemplateColumns:m?"repeat(3,1fr)":"repeat(4,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>기준금액</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{fmt(c.b)}</div></div>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>세금+인건비</div><div style={{fontSize:m?12:14,fontWeight:700,color:C.td}}>{fmt(c.tx+c.tl)}</div></div>
@@ -585,7 +583,6 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
                 <div style={{padding:"8px 12px",background:realPf>=0?C.gn:C.rd}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>실제수익</div><div style={{fontSize:m?14:16,fontWeight:800,color:realPf>=0?C.gt:C.rt}}>{fmt(realPf)}</div></div>
               </div>
 
-              {/* 가계부 테이블 */}
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",minWidth:m?700:0}}>
                   <thead><tr>
@@ -613,7 +610,6 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
                         </tr>
                       );
                     })}
-                    {/* 합계 행 */}
                     <tr style={{background:C.hd}}>
                       <td colSpan={2} style={{...cL,fontWeight:700,fontSize:11}}>합계</td>
                       {catTotals.map((v,ci)=> <td key={ci} style={{...ce,textAlign:"center",fontSize:11,fontWeight:600,color:v>0?"#d97706":C.tm,background:C.hd}}>{v>0?fmt(v):"-"}</td>)}
@@ -631,6 +627,73 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
           </div>
         );
       })}
+    </div>}
+  </div>);
+}
+
+/* ── Finish (결산 완료 현장 모아보기) ── */
+function FinP({projects:ps, mobile:m}){
+  // '계산서발행' 상태인 현장들만 필터링
+  const fp=ps.filter(p=>p.st?.invoice);
+  
+  const totalB=fp.reduce((a,p)=>a+cP(p).b,0);
+  const totalTx=fp.reduce((a,p)=>a+cP(p).tx,0);
+  const totalLb=fp.reduce((a,p)=>a+cP(p).tl,0);
+  const totalExp=fp.reduce((a,p)=>a+cP(p).exp,0);
+  const totalAc=fp.reduce((a,p)=>a+(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0),0);
+  
+  const estProfit=totalB-totalTx-totalLb-totalExp;
+  const realProfit=totalB-totalTx-totalLb-totalAc;
+  const savedAmt=totalExp-totalAc;
+  
+  return(<div>
+    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>결산 (계산서 발행 완료)</div>
+    
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:8}}>
+      {[{l:"완료 현장",v:`${fp.length}개`,c:C.tx},
+        {l:"총 기준금액",v:fmt(totalB),c:C.ac},
+        {l:"총 세금",v:fmt(totalTx),c:C.rt},
+        {l:"총 인건비",v:fmt(totalLb),c:C.gt}
+      ].map(x=><div key={x.l} style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
+        <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
+        <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    </div>
+    
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
+      {[{l:"예상수익 합계",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
+        {l:"실제수익 합계",v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd},
+        {l:"경비 절감액 (추가수익)",v:savedAmt>0?`+${fmt(savedAmt)}`:fmt(savedAmt),c:savedAmt>=0?C.bt:C.rt,bg:savedAmt>=0?C.bl:C.rd},
+        {l:"실제경비 합계",v:fmt(totalAc),c:"#d97706"}
+      ].map(x=><div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
+        <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
+        <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
+    </div>
+    
+    {fp.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>계산서 발행이 완료된 현장이 없습니다</div>:
+    <div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,overflowX:"auto"}}>
+      <table style={{width:"100%",borderCollapse:"collapse",minWidth:m?600:0}}>
+        <thead><tr>
+          {["현장명","정산월","기준금액","인건비","예상경비","실제경비","경비절감","실제수익"].map(h=><th key={h} style={{...cL,fontSize:11,textAlign:h==="현장명"?"left":"right"}}>{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {fp.sort((a,b)=>(b.pm||"").localeCompare(a.pm||"")).map(p=>{
+            const c2=cP(p);
+            const ac=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);
+            const rp2=c2.b-c2.tx-c2.tl-ac;
+            const sv=c2.exp-ac;
+            return <tr key={p.id} style={{borderBottom:`1px solid ${C.bd}`}}>
+              <td style={{...ce,fontSize:12,fontWeight:600}}>{p.nm||"미입력"}<br/><span style={{fontSize:10,color:C.td,fontWeight:400}}>{p.cl||"-"}</span></td>
+              <td style={{...cV,fontSize:11,color:C.tm}}>{p.pm?`${parseInt(p.pm.split("-")[1])}월`:"-"}</td>
+              <td style={{...cV,fontSize:12}}>{fmt(c2.b)}</td>
+              <td style={{...cV,fontSize:11}}>{fmt(c2.tl)}</td>
+              <td style={{...cV,fontSize:11}}>{fmt(c2.exp)}</td>
+              <td style={{...cV,fontSize:11,color:"#d97706"}}>{fmt(ac)}</td>
+              <td style={{...cV,fontSize:11,color:sv>=0?C.bt:C.rt,fontWeight:600}}>{sv>0?`+${fmt(sv)}`:fmt(sv)}</td>
+              <td style={{...cV,fontSize:12,fontWeight:700,color:rp2>=0?C.gt:C.rt}}>{fmt(rp2)}</td>
+            </tr>;
+          })}
+        </tbody>
+      </table>
     </div>}
   </div>);
 }
@@ -916,10 +979,10 @@ function App(){
     {pwError&&<div style={{color:"#fca5a5",fontSize:12,marginTop:10}}>비밀번호가 틀렸습니다</div>}
   </div>);
 
-  const nb=(l,t)=><button onClick={()=>{spg(t);sai(null);}}style={{padding:m?"4px 10px":"6px 16px",fontSize:m?11:13,fontWeight:700,cursor:"pointer",borderRadius:4,
+  const PAGES=["home","cost","finish","vehicle","payroll","calendar","settings"];
+  const nb=(l,t)=><button onClick={()=>{spg(t);sai(null);}}style={{padding:m?"4px 10px":"6px 16px",fontSize:m?11:13,fontWeight:700,cursor:"pointer",borderRadius:4,flexShrink:0,whiteSpace:"nowrap",
     background:pg===t&&!ai?C.ac:"transparent",color:pg===t&&!ai?"#fff":C.td,border:`1px solid ${pg===t&&!ai?C.ac:"transparent"}`}}>{l}</button>;
 
-  const PAGES=["home","cost","vehicle","payroll","calendar","settings"];
   const onTS=e=>{swRef.current={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};};
   const onTE=e=>{if(ai)return;const dx=e.changedTouches[0].clientX-swRef.current.x;const dy=Math.abs(e.changedTouches[0].clientY-swRef.current.y);
     const dt=Date.now()-swRef.current.t;const sx=swRef.current.x;
@@ -927,14 +990,15 @@ function App(){
 
   return(<div style={{background:C.bg,minHeight:"100vh",fontFamily:"'Pretendard',-apple-system,sans-serif"}} onTouchStart={onTS} onTouchEnd={onTE}>    <style>{`@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');*{box-sizing:border-box;margin:0;padding:0;}input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;}input[type=number]{-moz-appearance:textfield;}::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-thumb{background:#ccc;border-radius:3px;}table{table-layout:auto;}`}</style>
     <div style={{background:C.w,borderBottom:`2px solid ${C.ac}`,padding:m?"6px 12px":"8px 20px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
-      <div style={{display:"flex",alignItems:"center",gap:m?3:6}}>
-        <span style={{fontSize:m?13:17,fontWeight:800,color:C.ac,cursor:"pointer",marginRight:m?2:10}}onClick={()=>{spg("home");sai(null);}}>{m?"미도T&C":"미도T&C 현장 경비 관리"}</span>
-        {nb("현장","home")}{nb("비용","cost")}{nb("차량","vehicle")}{nb("급여","payroll")}{nb("캘린더","calendar")}{nb(m?"⚙":"설정","settings")}
-        {fu&&<span style={{width:6,height:6,borderRadius:99,background:C.gt,marginLeft:2}}title="서버연결"/>}</div>
-      <Bn onClick={aP}bg={C.ac}small={m}style={{borderRadius:4}}>+ {m?"추가":"현장추가"}</Bn></div>
+      <div className="menu-scroll" style={{display:"flex",alignItems:"center",gap:m?3:6,overflowX:"auto",flex:1,marginRight:10}}>
+        <span style={{fontSize:m?13:17,fontWeight:800,color:C.ac,cursor:"pointer",marginRight:m?2:10,flexShrink:0}}onClick={()=>{spg("home");sai(null);}}>{m?"미도T&C":"미도T&C 현장 경비 관리"}</span>
+        {nb("현장","home")}{nb("비용","cost")}{nb("결산","finish")}{nb("차량","vehicle")}{nb("급여","payroll")}{nb("캘린더","calendar")}{nb(m?"⚙":"설정","settings")}
+        {fu&&<span style={{width:6,height:6,borderRadius:99,background:C.gt,marginLeft:2,flexShrink:0}}title="서버연결"/>}</div>
+      <Bn onClick={aP}bg={C.ac}small={m}style={{borderRadius:4,flexShrink:0}}>+ {m?"추가":"현장추가"}</Bn></div>
     <div style={{maxWidth:1400,margin:"0 auto",padding:m?"10px 8px":"16px 12px"}}>
       {ap?<PD project={ap}onChange={uP}onBack={()=>sai(null)}onDelete={()=>dP(ap.id)}mobile={m}vehicles={vs}/>
       :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
+      :pg==="finish"?<FinP projects={ps}mobile={m}/>
       :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
       :pg==="payroll"?<PayP projects={ps}mobile={m}/>
       :pg==="calendar"?<CalP projects={ps}mobile={m}/>
@@ -942,7 +1006,6 @@ function App(){
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
     </div></div>);
 }
-
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
 </script>
