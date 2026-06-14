@@ -284,9 +284,51 @@ function PayP({projects:ps,pay,onPay,mobile:m}){
   const getPaid=(n)=>((pay||{})[mk]||{})[n]||0;
   const setPaid=(n,v)=>onPay({...(pay||{}),[mk]:{...((pay||{})[mk]||{}),[n]:Math.max(0,Math.round(v)||0)}});
   const gPaid=Object.keys(am).reduce((a,n)=>a+getPaid(n),0),gRemain=gn-gPaid;
+  const[view,setView]=useState("month");
+  const yearAgg={};
+  MO.forEach(mo=>{const mkk=`${yr}-${String(mo).padStart(2,"0")}`;
+    ps.filter(p=>(p.pm||"")===mkk&&p.st?.contract).forEach(p=>{const c=cP(p);Object.entries(p.mb||{}).forEach(([n,pc])=>{
+      if(pc<=0&&!((p.md||{})[n]>0)&&!((p.mf||{})[n]>0))return;
+      if(!yearAgg[n])yearAgg[n]={ta:0,td:0,paid:0};
+      yearAgg[n].ta+=(c.ma[n]||0);yearAgg[n].td+=((p.md||{})[n]||0);});});
+    Object.entries((pay||{})[mkk]||{}).forEach(([n,amt])=>{if(!yearAgg[n])yearAgg[n]={ta:0,td:0,paid:0};yearAgg[n].paid+=(amt||0);});});
+  const yEntries=Object.entries(yearAgg).filter(([n,v])=>v.ta>0||v.paid>0).sort((a,b)=>b[1].ta-a[1].ta);
+  const yTot=yEntries.reduce((a,[n,v])=>{const net=v.ta-Math.round(v.ta*0.033);a.ta+=v.ta;a.td+=v.td;a.net+=net;a.paid+=v.paid;return a;},{ta:0,td:0,net:0,paid:0});
+  const yearView=(<div>
+    <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:16}}>
+      {[{l:"연간 총급여",v:fmt(yTot.ta),c:C.gt,bg:C.gn},{l:"연간 실지급",v:fmt(yTot.net),c:C.bt,bg:C.bl},{l:"연간 지급",v:fmt(yTot.paid),c:C.gt,bg:"#e7f6ec"},{l:"연간 잔여",v:fmt(yTot.net-yTot.paid),c:(yTot.net-yTot.paid)>0?C.ot:C.gt,bg:(yTot.net-yTot.paid)>0?C.og:C.gn},{l:"인원",v:`${yEntries.length}명`,c:C.ac}].map(x=>
+        <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}</div>
+    {yEntries.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>3~12월에 배정된 급여가 없습니다.</div>:
+    <div style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
+      <div style={{background:C.ac,color:"#fff",padding:"10px 16px",fontSize:13,fontWeight:700}}>인원별 연간 합계 ({yr}년 3~12월)</div>
+      <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:m?520:0}}><thead><tr>
+        <th style={{...cL,textAlign:"left"}}>이름</th><th style={{...cL,textAlign:"center",width:50}}>일수</th>
+        <th style={{...cL,textAlign:"right"}}>총급여</th><th style={{...cL,textAlign:"right"}}>실지급</th>
+        <th style={{...cL,textAlign:"right"}}>지급</th><th style={{...cL,textAlign:"right"}}>잔여</th></tr></thead>
+      <tbody>{yEntries.map(([n,v])=>{const net=v.ta-Math.round(v.ta*0.033),rem=net-v.paid,dn=v.paid>0&&rem<=0;return(
+        <tr key={n}><td style={{...ce,fontWeight:700,fontSize:13}}>{n}</td>
+          <td style={{...ce,textAlign:"center",fontSize:12,color:C.bt}}>{v.td}일</td>
+          <td style={{...cV,fontSize:12,color:C.gt}}>{fmt(v.ta)}</td>
+          <td style={{...cV,fontSize:12,color:C.bt}}>{fmt(net)}</td>
+          <td style={{...cV,fontSize:12,fontWeight:700,color:C.gt}}>{fmt(v.paid)}</td>
+          <td style={{...cV,fontSize:12,fontWeight:700,color:dn?C.gt:(rem>0?C.ot:C.rt),background:dn?C.gn:(rem>0?C.og:"transparent")}}>{dn?"완료":fmt(rem)}</td></tr>);})}
+        <tr style={{background:C.hd}}><td style={{...cL,fontWeight:800}}>합계</td>
+          <td style={{...ce,textAlign:"center",fontWeight:700,color:C.bt}}>{yTot.td}일</td>
+          <td style={{...cV,fontWeight:800,color:C.gt}}>{fmt(yTot.ta)}</td>
+          <td style={{...cV,fontWeight:800,color:C.bt}}>{fmt(yTot.net)}</td>
+          <td style={{...cV,fontWeight:800,color:C.gt}}>{fmt(yTot.paid)}</td>
+          <td style={{...cV,fontWeight:800,color:(yTot.net-yTot.paid)>0?C.ot:C.gt}}>{fmt(yTot.net-yTot.paid)}</td></tr>
+      </tbody></table></div></div>}
+  </div>);
 
   return(<div>
-    <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>급여 관리</div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+      <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac}}>급여 관리</div>
+      <div style={{display:"flex",gap:4,background:C.hd,borderRadius:6,padding:3}}>
+        {[["month","월별"],["year","연간 합계"]].map(([k,l])=><button key={k}onClick={()=>setView(k)}style={{padding:"5px 14px",borderRadius:4,fontSize:12,fontWeight:700,cursor:"pointer",border:"none",background:view===k?C.ac:"transparent",color:view===k?"#fff":C.td}}>{l}</button>)}
+      </div>
+    </div>
+    {view==="year"?yearView:<>
     <div style={{display:"flex",gap:8,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
       {MO.map(v=>{const cnt=ps.filter(p=>(p.pm||"")===`${yr}-${String(v).padStart(2,"0")}`).length;
         return <button key={v}onClick={()=>ssm(v)}style={{padding:m?"6px 12px":"8px 16px",borderRadius:4,fontSize:13,fontWeight:700,cursor:"pointer",flexShrink:0,
@@ -328,7 +370,7 @@ function PayP({projects:ps,pay,onPay,mobile:m}){
               <tr style={{background:C.hd}}><td colSpan={m?1:2}style={{...cL,fontWeight:700}}>합계</td><td style={{...ce,textAlign:"center",fontWeight:700,color:C.bt}}>{d.td}일</td><td style={{...cV,fontWeight:700,color:C.gt}}>{fmt(d.ta)}</td></tr>
               <tr><td colSpan={m?1:2}style={{...cL,color:C.rt}}>3.3%</td><td style={ce}></td><td style={{...cV,fontWeight:700,color:C.rt}}>{fmt(t3)}</td></tr>
               <tr style={{background:C.bl}}><td colSpan={m?1:2}style={{...cL,fontWeight:700,background:C.bl}}>실지급</td><td style={{...ce,background:C.bl}}></td><td style={{...cV,fontWeight:800,fontSize:m?14:16,color:C.bt,background:C.bl}}>{fmt(net)}</td></tr>
-            </tbody></table></div>);})}</div>}</div>);
+            </tbody></table></div>);})}</div>}</>}</div>);
 }
 
 /* ── Detail ── */
@@ -519,7 +561,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
       {[{l:"예상경비",v:fmt(allExp),c:C.td},{l:"실제경비",v:fmt(allAc),c:"#d97706"},
         {l:"예상수익",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
-        {l:`실제수익 (입력 ${realCount}/${cp.length})`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd}
+        {l:`실제수익 (비용입력 ${realCount}곳)`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd}
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
@@ -556,7 +598,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
           예상수익 = 기준금액 − 세금 − 인건비 − 예상경비<br/>
           실제수익 = 기준금액 − 세금 − 인건비 − 실제경비<br/>
           경비여유 = (예상경비 − 실제경비) ÷ 예상경비 × 100<br/>
-          <span style={{color:C.tm}}>* 계약완료 현장만 수익에 반영</span></div>
+          <span style={{color:C.tm}}>* 계약완료 현장만 수익에 반영<br/>* 실제수익은 비용탭에 실제 지출을 입력한 현장만 합산 (미입력 현장은 '미입력'으로 제외)</span></div>
       </div>}
     </div>
     {ps.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>현장이 없습니다</div>:
@@ -675,7 +717,7 @@ function FinP({projects:ps, mobile:m}){
     
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
       {[{l:"예상수익 합계",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
-        {l:`실제수익 합계 (입력 ${realCount}/${fp.length})`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd},
+        {l:`실제수익 합계 (비용입력 ${realCount}곳)`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd},
         {l:"경비 절감액 (추가수익)",v:savedAmt>0?`+${fmt(savedAmt)}`:fmt(savedAmt),c:savedAmt>=0?C.bt:C.rt,bg:savedAmt>=0?C.bl:C.rd},
         {l:"실제경비 합계",v:fmt(totalAc),c:"#d97706"}
       ].map(x=><div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
