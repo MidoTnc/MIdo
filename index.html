@@ -37,7 +37,7 @@ const storage={
 };
 const{useState,useEffect,useRef}=React;
 
-const SK = "mido-v11", FK = "mido-fb", VK = "mido-vehicles", DK = "mido-defaults";
+const SK = "mido-v11", FK = "mido-fb", VK = "mido-vehicles", DK = "mido-defaults", PYK = "mido-pay";
 const DM = ["김진휘","정창용","김민준","이은석","김태완","정민용","이재호"];
 const ST = [{k:"estimate",l:"견적완료",c:"#9333ea"},{k:"contract",l:"계약완료",c:"#2563eb"},{k:"report",l:"보고서납품",c:"#d97706"},{k:"invoice",l:"계산서발행",c:"#059669"}];
 const MO = [3,4,5,6,7,8,9,10,11,12];
@@ -57,7 +57,7 @@ function cR(r,t){const e=r.fe||11;if(!r.dk||e<=0)return{f:0,t:0,tt:0};const f=(r
 function cP(p){
   const b=p.ca*(p.rt/100),dayRate=p.tt==="출퇴근"?(p.cwc||p.wc):p.wc,ac=p.wd*dayRate*p.ps+p.rtd*p.rc*p.ps,rv=p.rd*150000*p.rp;
   let vh=0;(p.routes||[]).forEach(r=>{vh+=cR(r,p.trips).tt;});
-  const ex=(p.mc||0)+(p.pc||0)+(p.prc||0)+(p.etc||0),exp=ac+vh+rv+ex;
+  const ex=(p.mc||0)+(p.pc||0)+(p.prc||0)+(p.etc||0),exp=ac+vh+ex;
   const tx=b*((p.tx??20)/100),lb=b-exp-tx;
   const ma={};let tl=0;Object.entries(p.mb||{}).forEach(([n,pc])=>{
     const fixed=(p.mf||{})[n];
@@ -269,18 +269,21 @@ function SchSec({sch:ss,onChange:oc,mobile:m}){
 }
 
 /* ── Payroll ── */
-function PayP({projects:ps,mobile:m}){
+function PayP({projects:ps,pay,onPay,mobile:m}){
   const[sm,ssm]=useState(()=>{const v=new Date().getMonth()+1;return v>=3?v:3;});const[cn,scn]=useState(null);
   const yr=new Date().getFullYear(),mk=`${yr}-${String(sm).padStart(2,"0")}`;
   const mp=ps.filter(p=>(p.pm||"")===mk&&p.st?.contract);const am={};
   mp.forEach(p=>{const c=cP(p);Object.entries(p.mb||{}).forEach(([n,pc])=>{
     if(pc<=0&&!((p.md||{})[n]>0)&&!((p.mf||{})[n]>0))return;if(!am[n])am[n]={rows:[],td:0,ta:0};
     const d=(p.md||{})[n]||0,a=c.ma[n]||0;am[n].rows.push({pj:p.nm||"이름없음",cl:p.cl||"-",d,a});am[n].td+=d;am[n].ta+=a;});});
-  const cp=(n,d)=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3;
-    const l=[`[${sm}월 급여명세] ${n}`,"",`총 급여: ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급액: ${fmt(net)}`,`총 일수: ${d.td}일`,"","── 현장별 ──"];
-    d.rows.forEach(r=>l.push(`${r.pj} (${r.cl}) | ${r.d}일 | ${fmt(r.a)}`));l.push("",`합계: ${d.td}일 / ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급: ${fmt(net)}`);
+  const cp=(n,d)=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3,paid=getPaid(n),remain=net-paid;
+    const l=[`[${sm}월 급여명세] ${n}`,"",`총 급여: ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급액: ${fmt(net)}`,`지급액: ${fmt(paid)}`,`잔여: ${fmt(remain)}`,`총 일수: ${d.td}일`,"","── 현장별 ──"];
+    d.rows.forEach(r=>l.push(`${r.pj} (${r.cl}) | ${r.d}일 | ${fmt(r.a)}`));l.push("",`합계: ${d.td}일 / ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급: ${fmt(net)}`,`지급: ${fmt(paid)} / 잔여: ${fmt(remain)}`);
     navigator.clipboard.writeText(l.join("\n")).then(()=>{scn(n);setTimeout(()=>scn(null),2000);});};
   const gt=Object.values(am).reduce((a,m)=>a+m.ta,0),gt3=Math.round(gt*0.033),gn=gt-gt3;
+  const getPaid=(n)=>((pay||{})[mk]||{})[n]||0;
+  const setPaid=(n,v)=>onPay({...(pay||{}),[mk]:{...((pay||{})[mk]||{}),[n]:Math.max(0,Math.round(v)||0)}});
+  const gPaid=Object.keys(am).reduce((a,n)=>a+getPaid(n),0),gRemain=gn-gPaid;
 
   return(<div>
     <div style={{fontSize:m?16:18,fontWeight:800,color:C.ac,marginBottom:14}}>급여 관리</div>
@@ -291,21 +294,30 @@ function PayP({projects:ps,mobile:m}){
           {v}월{cnt>0&&<span style={{background:v===sm?"#fff":C.ac,color:v===sm?C.ac:"#fff",fontSize:9,fontWeight:800,borderRadius:99,width:16,height:16,display:"inline-flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{cnt}</span>}</button>;})}
     </div>
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(auto-fit,minmax(120px,1fr))",gap:8,marginBottom:16}}>
-      {[{l:`${sm}월 현장`,v:`${mp.length}개`,c:C.ac},{l:"총 급여",v:fmt(gt),c:C.gt,bg:C.gn},{l:"3.3% 공제합계",v:fmt(gt3),c:C.rt,bg:C.rd},{l:"실지급합계",v:fmt(gn),c:C.bt,bg:C.bl},{l:"인원",v:`${Object.keys(am).length}명`,c:C.ac}].map(x=>
+      {[{l:"총 급여",v:fmt(gt),c:C.gt,bg:C.gn},{l:"실지급합계",v:fmt(gn),c:C.bt,bg:C.bl},{l:"지급합계",v:fmt(gPaid),c:C.gt,bg:"#e7f6ec"},{l:"잔여합계",v:fmt(gRemain),c:gRemain>0?C.ot:C.gt,bg:gRemain>0?C.og:C.gn},{l:"인원",v:`${Object.keys(am).length}명`,c:C.ac}].map(x=>
         <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}</div>
     {mp.length===0?<div style={{background:C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"40px 20px",textAlign:"center",color:C.tm}}>{sm}월에 배정된 현장이 없습니다. 현장에서 정산월을 설정해주세요.</div>:
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
-      {Object.entries(am).map(([n,d])=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3;return(
+      {Object.entries(am).map(([n,d])=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3,paid=getPaid(n),remain=net-paid,done=paid>0&&remain<=0;return(
         <div key={n}style={{background:C.w,border:`1.5px solid ${C.bdd}`,borderRadius:4,overflow:"hidden"}}>
           <div style={{background:C.ac,color:"#fff",padding:"10px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
             <div><span style={{fontSize:16,fontWeight:800}}>{n}</span> <span style={{fontSize:12,opacity:0.8}}>{sm}월</span></div>
             <button onClick={()=>cp(n,d)}style={{background:cn===n?C.gt:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:4,padding:"5px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>{cn===n?"✓ 복사완료":"복사하기"}</button></div>
-          <div style={{display:"grid",gridTemplateColumns:m?"1fr 1fr":"repeat(5,1fr)",gap:0,borderBottom:`2px solid ${C.bdd}`}}>
+          <div style={{display:"grid",gridTemplateColumns:m?"1fr 1fr":"repeat(5,1fr)",gap:0,borderBottom:`1px solid ${C.bd}`}}>
             {!m&&<div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>현장</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{d.rows.length}개</div></div>}
             <div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>일수</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.bt}}>{d.td}일</div></div>
             <div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>총 급여</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.gt}}>{fmt(d.ta)}</div></div>
             <div style={{padding:"10px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>3.3%</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.rt}}>{fmt(t3)}</div></div>
             <div style={{padding:"10px 14px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>실지급</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.bt}}>{fmt(net)}</div></div></div>
+          <div style={{display:"grid",gridTemplateColumns:"1.2fr 1fr auto",gap:0,borderBottom:`2px solid ${C.bdd}`,background:"#fafbfc",alignItems:"stretch"}}>
+            <div style={{padding:"8px 14px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600,marginBottom:2}}>지급액</div>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <input type="number"value={paid||""}placeholder="0"onChange={e=>setPaid(n,Number(e.target.value)||0)}style={{width:"100%",border:`1px solid ${C.bd}`,borderRadius:3,background:"#fff",padding:"4px 6px",fontSize:m?13:14,fontWeight:700,textAlign:"right",color:C.gt,outline:"none"}}/>
+                <span style={{fontSize:10,color:C.tm}}>원</span></div></div>
+            <div style={{padding:"8px 14px",borderRight:`1px solid ${C.bd}`,background:done?C.gn:(remain>0?C.og:"#fff")}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>잔여</div>
+              <div style={{fontSize:m?14:16,fontWeight:800,color:done?C.gt:(remain>0?C.ot:C.rt)}}>{done?"완료":fmt(remain)}</div></div>
+            <div style={{padding:"8px 12px",display:"flex",alignItems:"center"}}>
+              <button onClick={()=>setPaid(n,done?0:net)}style={{background:done?C.w:C.gt,border:`1px solid ${done?C.bdd:C.gt}`,color:done?C.td:"#fff",borderRadius:4,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{done?"지급취소":"전액지급"}</button></div></div>
           <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>
             <th style={{...cL,textAlign:"left"}}>현장명</th>{!m&&<th style={{...cL,textAlign:"left",width:120}}>발주처</th>}
             <th style={{...cL,textAlign:"center",width:55}}>일수</th><th style={{...cL,textAlign:"right",width:100}}>금액</th></tr></thead>
@@ -346,9 +358,6 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
     <FR label="복귀단가"><NI value={p.rc}onChange={v=>u("rc",v)}/></FR><FR label="작업일수"><NI value={p.wd}onChange={v=>u("wd",v)}/></FR>
     <FR label="복귀일수"><NI value={p.rtd}onChange={v=>u("rtd",v)}/></FR><FR label="왕복횟수"><NI value={p.trips}onChange={v=>u("trips",v)}/></FR>
   </tbody></table>;
-  const rvSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
-    <FR label="검토기간"><NI value={p.rd}onChange={v=>u("rd",v)}/></FR><FR label="검토인원"><NI value={p.rp}onChange={v=>u("rp",v)}/></FR>
-    <tr><td style={{...cL,fontSize:11}}>검토비</td><td style={{...cV,fontSize:11}}>{fmt(c.rv)}</td></tr></tbody></table>;
   const etSec=<table style={{width:"100%",borderCollapse:"collapse"}}><tbody>
     <FR label="주차비"><NI value={p.pc}onChange={v=>u("pc",v)}/></FR>
     <FR label="출력비"><NI value={p.prc}onChange={v=>u("prc",v)}/></FR><FR label="기타"><NI value={p.etc}onChange={v=>u("etc",v)}/></FR>
@@ -356,7 +365,6 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   const exSum=<table style={{width:"100%",borderCollapse:"collapse",borderTop:`2px solid ${C.bdd}`}}><tbody>
     <tr><td style={{...cL,fontSize:11}}>숙식비</td><td style={{...cV,fontSize:11}}>{fmt(c.ac)}</td></tr>
     <tr><td style={{...cL,fontSize:11}}>차량비</td><td style={{...cV,fontSize:11}}>{fmt(c.vh)}</td></tr>
-    <tr><td style={{...cL,fontSize:11}}>검토비</td><td style={{...cV,fontSize:11}}>{fmt(c.rv)}</td></tr>
     {c.ex>0&&<tr><td style={{...cL,fontSize:11}}>기타</td><td style={{...cV,fontSize:11}}>{fmt(c.ex)}</td></tr>}
     <tr><td style={{...cL,fontWeight:700,fontSize:13}}>경비합계</td><td style={{...cV,fontWeight:700,fontSize:13,background:C.hd2}}>{fmt(c.exp)}</td></tr>
   </tbody></table>;
@@ -409,7 +417,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
       {[{l:"기준금액",v:fmt(c.b)},{l:"경비",v:fmt(c.exp)},{l:`세금(${p.tx??20}%)`,v:fmt(c.tx),bg:C.rd,c:C.rt},{l:"인건비",v:fmt(c.lb),bg:c.lb<0?C.rd:C.gn,c:c.lb<0?C.rt:C.gt},{l:"잔액",v:fmt(c.rm),bg:c.rm<0?C.rd:C.gn,c:c.rm<0?C.rt:C.gt}].map(x=>
         <div key={x.l}style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"6px 10px"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div><div style={{fontSize:m?14:16,fontWeight:800,color:x.c||C.tx}}>{x.v}</div></div>)}</div>
     {m?(<div>
-      <Sec title="1) 계약금액">{ctSec}</Sec><Sec title="숙식/기본"open={false}>{acSec}</Sec><Sec title="검토"open={false}>{rvSec}</Sec><Sec title="기타경비"open={false}>{etSec}</Sec><Sec title="경비소계">{exSum}</Sec>
+      <Sec title="1) 계약금액">{ctSec}</Sec><Sec title="숙식/기본"open={false}>{acSec}</Sec><Sec title="기타경비"open={false}>{etSec}</Sec><Sec title="경비소계">{exSum}</Sec>
       <Sec title={`2) 차량 (${(p.routes||[]).length}대)`}extra={<Bn onClick={aR}bg="rgba(255,255,255,0.2)"small>+차량</Bn>}>
         <div style={{padding:8}}>{(p.routes||[]).map((r,i)=><RC key={r.id}route={r}index={i}onUpdate={nr=>uR(i,nr)}onRemove={()=>rR(i)}roundTrips={p.trips}canRemove={p.routes.length>1}mobile={m}vehicles={vs}/>)}</div>
         <div style={{padding:"6px 10px",borderTop:`2px solid ${C.bdd}`,textAlign:"right"}}><span style={{fontSize:13,fontWeight:700,color:C.ac}}>차량비: {fmt(c.vh)}</span></div></Sec>
@@ -418,7 +426,6 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
       <div style={{borderRight:`1px solid ${C.bd}`}}>
         <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700}}>1) 계약금액</div>{ctSec}
         <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,borderTop:`1px solid ${C.bd}`}}>숙식/기본</div>{acSec}
-        <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,borderTop:`1px solid ${C.bd}`}}>검토</div>{rvSec}
         <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,borderTop:`1px solid ${C.bd}`}}>기타경비</div>{etSec}{exSum}</div>
       <div style={{borderRight:`1px solid ${C.bd}`,background:C.bg,display:"flex",flexDirection:"column"}}>
         <div style={{background:C.ac,color:"#fff",padding:"6px 10px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
@@ -477,6 +484,8 @@ function PL({projects:ps,onSelect:os,onDelete:od,mobile:m}){
 /* ── Cost (가계부 스타일) ── */
 const COST_CATS = ["주유비","숙박비","교통비","식비","음료비","자재비","하이패스","기타"];
 const mkCRow = () => ({id:uid(),dt:"",cats:COST_CATS.map(()=>0),shop:"",memo:""});
+const aclTotal = (p) => (p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);
+const hasActual = (p) => aclTotal(p) > 0;
 
 function CostP({projects:ps,onChange:oc,mobile:m}){
   const [openId,setOpenId] = useState(null);
@@ -490,7 +499,8 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
   const allExp=cp.reduce((a,p)=>a+cP(p).exp,0);
   const allAc=cp.reduce((a,p)=>{const rows=p.acl||[];return a+rows.reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);},0);
   const estProfit=allBase-allTx-allLb-allExp;
-  const realProfit=allBase-allTx-allLb-allAc;
+  const realProfit=cp.reduce((a,p)=>{if(!hasActual(p))return a;const c=cP(p);return a+(c.b-c.tx-c.tl-aclTotal(p));},0);
+  const realCount=cp.filter(hasActual).length;
   const rate=allExp>0?Math.round(((allExp-allAc)/allExp)*100):0;
 
   const addRow=(pid)=>{const p=ps.find(x=>x.id===pid);if(!p)return;oc({...p,acl:[...(p.acl||[]),mkCRow()]});};
@@ -509,7 +519,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
       {[{l:"예상경비",v:fmt(allExp),c:C.td},{l:"실제경비",v:fmt(allAc),c:"#d97706"},
         {l:"예상수익",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
-        {l:"실제수익",v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd}
+        {l:`실제수익 (입력 ${realCount}/${cp.length})`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd}
       ].map(x=> <div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
@@ -522,13 +532,13 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
         <table style={{width:"100%",borderCollapse:"collapse",marginBottom:12,minWidth:600}}><thead><tr>
           {["현장","기준금액","세금","인건비","예상경비","실제경비","예상수익","실제수익"].map(h=><th key={h}style={{...cL,fontSize:10,textAlign:h==="현장"?"left":"right"}}>{h}</th>)}
         </tr></thead><tbody>
-          {cp.map(p=>{const c2=cP(p);const ac=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);const ep2=c2.b-c2.tx-c2.tl-c2.exp;const rp2=c2.b-c2.tx-c2.tl-ac;
+          {cp.map(p=>{const c2=cP(p);const ac=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);const ep2=c2.b-c2.tx-c2.tl-c2.exp;const ent=ac>0;const rp2=c2.b-c2.tx-c2.tl-ac;
             return <tr key={p.id}><td style={{...ce,fontSize:11,fontWeight:600}}>{p.nm||"?"}</td>
               <td style={{...cV,fontSize:11}}>{fmt(c2.b)}</td><td style={{...cV,fontSize:11,color:C.rt}}>{fmt(c2.tx)}</td>
               <td style={{...cV,fontSize:11}}>{fmt(c2.tl)}</td><td style={{...cV,fontSize:11}}>{fmt(c2.exp)}</td>
               <td style={{...cV,fontSize:11,color:"#d97706"}}>{fmt(ac)}</td>
               <td style={{...cV,fontSize:11,color:ep2>=0?C.gt:C.rt}}>{fmt(ep2)}</td>
-              <td style={{...cV,fontSize:11,fontWeight:700,color:rp2>=0?C.gt:C.rt}}>{fmt(rp2)}</td></tr>;})}
+              <td style={{...cV,fontSize:11,fontWeight:700,color:ent?(rp2>=0?C.gt:C.rt):C.tm}}>{ent?fmt(rp2):"미입력"}</td></tr>;})}
           <tr style={{background:C.hd}}><td style={{...cL,fontWeight:700,fontSize:11}}>합계</td>
             <td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allBase)}</td><td style={{...cV,fontWeight:700,fontSize:11,color:C.rt}}>{fmt(allTx)}</td>
             <td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allLb)}</td><td style={{...cV,fontWeight:700,fontSize:11}}>{fmt(allExp)}</td>
@@ -557,6 +567,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
         const realTotal=catTotals.reduce((a,v)=>a+v,0);
         const estPf=c.b-c.tx-c.tl-c.exp;
         const realPf=c.b-c.tx-c.tl-realTotal;
+        const entered=realTotal>0;
         const pRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;const expRate=c.exp>0?Math.round(((c.exp-realTotal)/c.exp)*100):0;
         return (
           <div key={p.id} style={{background:C.w,border:`1.5px solid ${open?C.ac:C.bdd}`,borderRadius:4,overflow:"hidden"}}>
@@ -571,7 +582,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>경비 </span><strong>{fmt(realTotal)}</strong></span>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>예상 </span>{fmt(c.exp)}</span>
                 <span style={{fontSize:11}}><span style={{opacity:0.7}}>경비여유 </span><strong style={{color:open?(expRate>=0?"#a5f3a5":"#fca5a5"):(expRate>=0?C.gt:C.rt)}}>{expRate}%</strong></span>
-                <span style={{fontSize:12,fontWeight:700,color:open?(realPf>=0?"#a5f3a5":"#fca5a5"):(realPf>=0?C.gt:C.rt)}}>{fmt(realPf)}</span>
+                <span style={{fontSize:12,fontWeight:700,color:!entered?(open?"rgba(255,255,255,0.6)":C.tm):(open?(realPf>=0?"#a5f3a5":"#fca5a5"):(realPf>=0?C.gt:C.rt))}}>{entered?fmt(realPf):"미입력"}</span>
               </div>
             </div>
 
@@ -580,7 +591,7 @@ function CostP({projects:ps,onChange:oc,mobile:m}){
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>기준금액</div><div style={{fontSize:m?14:16,fontWeight:800,color:C.ac}}>{fmt(c.b)}</div></div>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>세금+인건비</div><div style={{fontSize:m?12:14,fontWeight:700,color:C.td}}>{fmt(c.tx+c.tl)}</div></div>
                 <div style={{padding:"8px 12px",borderRight:`1px solid ${C.bd}`,background:estPf>=0?"#f0faf0":"#fef0f0"}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>예상수익</div><div style={{fontSize:m?12:14,fontWeight:700,color:estPf>=0?C.gt:C.rt}}>{fmt(estPf)}</div></div>
-                <div style={{padding:"8px 12px",background:realPf>=0?C.gn:C.rd}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>실제수익</div><div style={{fontSize:m?14:16,fontWeight:800,color:realPf>=0?C.gt:C.rt}}>{fmt(realPf)}</div></div>
+                <div style={{padding:"8px 12px",background:!entered?C.hd2:(realPf>=0?C.gn:C.rd)}}><div style={{fontSize:10,color:C.tm,fontWeight:600}}>실제수익{!entered&&<span style={{fontWeight:500}}> (비용 미입력)</span>}</div><div style={{fontSize:m?14:16,fontWeight:800,color:!entered?C.tm:(realPf>=0?C.gt:C.rt)}}>{entered?fmt(realPf):"—"}</div></div>
               </div>
 
               <div style={{overflowX:"auto"}}>
@@ -644,7 +655,8 @@ function FinP({projects:ps, mobile:m}){
   const totalAc=fp.reduce((a,p)=>a+(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0),0);
   
   const estProfit=totalB-totalTx-totalLb-totalExp;
-  const realProfit=totalB-totalTx-totalLb-totalAc;
+  const realProfit=fp.reduce((a,p)=>{if(!hasActual(p))return a;const c=cP(p);return a+(c.b-c.tx-c.tl-aclTotal(p));},0);
+  const realCount=fp.filter(hasActual).length;
   const savedAmt=totalExp-totalAc;
   
   return(<div>
@@ -663,7 +675,7 @@ function FinP({projects:ps, mobile:m}){
     
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
       {[{l:"예상수익 합계",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
-        {l:"실제수익 합계",v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd},
+        {l:`실제수익 합계 (입력 ${realCount}/${fp.length})`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd},
         {l:"경비 절감액 (추가수익)",v:savedAmt>0?`+${fmt(savedAmt)}`:fmt(savedAmt),c:savedAmt>=0?C.bt:C.rt,bg:savedAmt>=0?C.bl:C.rd},
         {l:"실제경비 합계",v:fmt(totalAc),c:"#d97706"}
       ].map(x=><div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
@@ -682,6 +694,7 @@ function FinP({projects:ps, mobile:m}){
             const c2=cP(p);
             const vat=Math.round(c2.b*0.1);
             const ac=(p.acl||[]).reduce((s,r)=>s+(r.cats||[]).reduce((x,v)=>x+(v||0),0),0);
+            const ent=ac>0;
             const rp2=c2.b-c2.tx-c2.tl-ac;
             const sv=c2.exp-ac;
             return <tr key={p.id} style={{borderBottom:`1px solid ${C.bd}`}}>
@@ -693,7 +706,7 @@ function FinP({projects:ps, mobile:m}){
               <td style={{...cV,fontSize:11}}>{fmt(c2.exp)}</td>
               <td style={{...cV,fontSize:11,color:"#d97706"}}>{fmt(ac)}</td>
               <td style={{...cV,fontSize:11,color:sv>=0?C.bt:C.rt,fontWeight:600}}>{sv>0?`+${fmt(sv)}`:fmt(sv)}</td>
-              <td style={{...cV,fontSize:12,fontWeight:700,color:rp2>=0?C.gt:C.rt}}>{fmt(rp2)}</td>
+              <td style={{...cV,fontSize:12,fontWeight:700,color:ent?(rp2>=0?C.gt:C.rt):C.tm}}>{ent?fmt(rp2):"미입력"}</td>
             </tr>;
           })}
         </tbody>
@@ -919,13 +932,15 @@ async function fbG(u){try{const r=await fetch(`${u}/projects.json`);if(!r.ok)thr
 async function fbS(u,d){try{await fetch(`${u}/projects.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
 async function fbGV(u){try{const r=await fetch(`${u}/vehicles.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
 async function fbSV(u,d){try{await fetch(`${u}/vehicles.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
+async function fbGP(u){try{const r=await fetch(`${u}/payments.json`);if(!r.ok)throw 0;return await r.json();}catch{return null;}}
+async function fbSP(u,d){try{await fetch(`${u}/payments.json`,{method:"PUT",body:JSON.stringify(d),headers:{"Content-Type":"application/json"}});return true;}catch{return false;}}
 
 /* ── App ── */
 function App(){
   const m=useM();const[ps,sps]=useState([]);const[vs,svs]=useState([]);const[ld,sld]=useState(false);const[ai,sai]=useState(null);const[pg,spg]=useState("home");
   const[fu,sfu]=useState("");const[ss,sss]=useState(null);const[splash,sSplash]=useState(true);
   const[locked,setLocked]=useState(true);const[pwInput,setPwInput]=useState("");const[pwError,setPwError]=useState(false);
-  const[appPw,setAppPw]=useState("2025");const[defs,setDefs]=useState({...DEF_SETTINGS});
+  const[appPw,setAppPw]=useState("2025");const[defs,setDefs]=useState({...DEF_SETTINGS});const[pay,spay]=useState({});
   const swRef=useRef({x:0,y:0});
   const tryLogin=()=>{if(pwInput===appPw){setLocked(false);setPwError(false);}else{setPwError(true);setPwInput("");}};
   useEffect(()=>{(async()=>{try{const p=await storage.get("mido-pw");if(p?.value)setAppPw(p.value);}catch{}})();},[]);
@@ -933,6 +948,7 @@ function App(){
   useEffect(()=>{(async()=>{try{const f=await storage.get(FK);if(f?.value)sfu(f.value);}catch{}
     try{const v=await storage.get(VK);if(v?.value)svs(JSON.parse(v.value));}catch{}
     try{const df=await storage.get(DK);if(df?.value)setDefs(prev=>({...prev,...JSON.parse(df.value)}));}catch{}
+    try{const py=await storage.get(PYK);if(py?.value)spay(JSON.parse(py.value));}catch{}
     try{const r=await storage.get(SK);if(r?.value){
     let data=JSON.parse(r.value);
     /* migrate old acl format */
@@ -943,11 +959,13 @@ function App(){
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(VK,JSON.stringify(vs));}catch{}})();},[vs,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(FK,fu);}catch{}})();},[fu,ld]);
   useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(DK,JSON.stringify(defs));}catch{}})();},[defs,ld]);
-  useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>{fbS(fu,ps);fbSV(fu,vs);},2000);return()=>clearTimeout(t);},[ps,vs,ld,fu]);
-  useEffect(()=>{if(!fu)return;const h=()=>{try{fetch(`${fu}/projects.json`,{method:"PUT",body:JSON.stringify(ps),headers:{"Content-Type":"application/json"},keepalive:true});fetch(`${fu}/vehicles.json`,{method:"PUT",body:JSON.stringify(vs),headers:{"Content-Type":"application/json"},keepalive:true});}catch{}};window.addEventListener("beforeunload",h);window.addEventListener("pagehide",h);return()=>{window.removeEventListener("beforeunload",h);window.removeEventListener("pagehide",h);};},[ps,vs,fu]);
-  useEffect(()=>{if(!ld||!fu)return;(async()=>{try{const dt=await fbG(fu);const vt=await fbGV(fu);
+  useEffect(()=>{if(!ld)return;(async()=>{try{await storage.set(PYK,JSON.stringify(pay));}catch{}})();},[pay,ld]);
+  useEffect(()=>{if(!ld||!fu)return;const t=setTimeout(()=>{fbS(fu,ps);fbSV(fu,vs);fbSP(fu,pay);},2000);return()=>clearTimeout(t);},[ps,vs,pay,ld,fu]);
+  useEffect(()=>{if(!fu)return;const h=()=>{try{fetch(`${fu}/projects.json`,{method:"PUT",body:JSON.stringify(ps),headers:{"Content-Type":"application/json"},keepalive:true});fetch(`${fu}/vehicles.json`,{method:"PUT",body:JSON.stringify(vs),headers:{"Content-Type":"application/json"},keepalive:true});fetch(`${fu}/payments.json`,{method:"PUT",body:JSON.stringify(pay),headers:{"Content-Type":"application/json"},keepalive:true});}catch{}};window.addEventListener("beforeunload",h);window.addEventListener("pagehide",h);return()=>{window.removeEventListener("beforeunload",h);window.removeEventListener("pagehide",h);};},[ps,vs,pay,fu]);
+  useEffect(()=>{if(!ld||!fu)return;(async()=>{try{const dt=await fbG(fu);const vt=await fbGV(fu);const pt=await fbGP(fu);
     if(dt){const arr=Array.isArray(dt)?dt:Object.values(dt);if(arr.length>0)sps(arr);}
-    if(vt&&Array.isArray(vt)&&vt.length>0)svs(vt);}catch{}})();},[ld,fu]);
+    if(vt&&Array.isArray(vt)&&vt.length>0)svs(vt);
+    if(pt&&typeof pt==="object")spay(pt);}catch{}})();},[ld,fu]);
 
   const hS=async d=>{if(!fu)return;sss({ok:false,msg:"동기화중..."});
     if(d==="up"){const ok=await fbS(fu,ps);await fbSV(fu,vs);sss({ok,msg:ok?"✓업로드완료":"✗실패"});}
@@ -956,8 +974,8 @@ function App(){
       else if(dt&&typeof dt==="object"){const a=Object.values(dt);if(a.length){sps(a);sss({ok:true,msg:`✓${a.length}개 다운로드`});}else sss({ok:false,msg:"데이터없음"});}
       else sss({ok:false,msg:"데이터없음"});
       if(vt&&Array.isArray(vt))svs(vt);}setTimeout(()=>sss(null),3000);};
-  const hD=()=>{const b=new Blob([JSON.stringify({projects:ps,vehicles:vs},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`미도TC_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);};
-  const hU=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d))sps(d);else if(d.projects){sps(d.projects);if(d.vehicles)svs(d.vehicles);}}catch{}};r.readAsText(f);e.target.value="";};
+  const hD=()=>{const b=new Blob([JSON.stringify({projects:ps,vehicles:vs,pay},null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`미도TC_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);};
+  const hU=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(Array.isArray(d))sps(d);else if(d.projects){sps(d.projects);if(d.vehicles)svs(d.vehicles);if(d.pay)spay(d.pay);}}catch{}};r.readAsText(f);e.target.value="";};
 
   const aP=()=>{const p=mkP(defs);sps(v=>[...v,p]);sai(p.id);spg("home");};
   const uP=up=>sps(v=>v.map(p=>p.id===up.id?up:p));const dP=id=>{sps(v=>v.filter(p=>p.id!==id));if(ai===id)sai(null);};
@@ -1004,7 +1022,7 @@ function App(){
       :pg==="cost"?<CostP projects={ps}onChange={uP}mobile={m}/>
       :pg==="finish"?<FinP projects={ps}mobile={m}/>
       :pg==="vehicle"?<VehP vehicles={vs}onChange={svs}mobile={m}/>
-      :pg==="payroll"?<PayP projects={ps}mobile={m}/>
+      :pg==="payroll"?<PayP projects={ps}pay={pay}onPay={spay}mobile={m}/>
       :pg==="calendar"?<CalP projects={ps}mobile={m}/>
       :pg==="settings"?<SetP fu={fu}sfu={sfu}onS={hS}onD={hD}onU={hU}ss={ss}mobile={m}appPw={appPw}onPwChange={savePw}defs={defs}onDefsChange={setDefs}projects={ps}/>
       :<PL projects={ps}onSelect={id=>sai(id)}onDelete={dP}mobile={m}/>}
