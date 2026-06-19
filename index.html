@@ -14,7 +14,12 @@
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+  Babel.registerPreset("react-classic", {
+    presets: [[Babel.availablePresets.react, { runtime: "classic" }]]
+  });
+</script>
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -30,8 +35,8 @@ table{table-layout:auto;}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react,env">
-const storage={
+<script type="text/babel" data-presets="react-classic,env">
+  const storage={
   async get(k){const v=localStorage.getItem(k);return v!==null?{value:v}:null;},
   async set(k,v){localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));return true;}
 };
