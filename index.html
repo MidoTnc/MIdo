@@ -30,7 +30,7 @@ table{table-layout:auto;}
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react,env" data-type="module">
+<script type="text/babel" data-presets="react,env">
 const storage={
   async get(k){const v=localStorage.getItem(k);return v!==null?{value:v}:null;},
   async set(k,v){localStorage.setItem(k,typeof v==='string'?v:JSON.stringify(v));return true;}
@@ -107,7 +107,7 @@ const ip={width:"100%",border:"none",background:"transparent",padding:"6px 10px"
 function NI({value:v,onChange:o,style:s,step:st}){return <input type="number"step={st}value={v||""}placeholder="0"onChange={e=>o(Number(e.target.value)||0)}style={{...ip,...s}}/>;}
 function TI({value:v,onChange:o,placeholder:p,style:s}){return <input type="text"value={v}placeholder={p}onChange={e=>o(e.target.value)}style={{...ip,textAlign:"left",...s}}/>;}
 function Bn({children:ch,onClick:o,bg,color:c,disabled:d,small:sm,style:s}){
-  return <button disabled={d}onClick={e=>{e.stopPropagation();o?.();}}style={{background:bg||C.ac,color:c||"#fff",border:"none",borderRadius:3,padding:"2px 8px",fontSize:sm?"2px 8px":"5px 14px",fontSize:sm?10:12,fontWeight:600,cursor:d?"not-allowed":"pointer",opacity:d?0.5:1,whiteSpace:"nowrap",...s}}>{ch}</button>;
+  return <button disabled={d}onClick={e=>{e.stopPropagation();o?.();}}style={{background:bg||C.ac,color:c||"#fff",border:"none",borderRadius:3,padding:sm?"2px 8px":"5px 14px",fontSize:sm?10:12,fontWeight:600,cursor:d?"not-allowed":"pointer",opacity:d?0.5:1,whiteSpace:"nowrap",...s}}>{ch}</button>;
 }
 function SB({checked:ck,label:l,color:c,onClick:o}){
   return <div onClick={e=>{e.stopPropagation();o();}}style={{display:"inline-flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:99,background:ck?c+"18":"#f0f0f0",border:`1.5px solid ${ck?c:"#ddd"}`,cursor:"pointer",userSelect:"none"}}>
@@ -217,7 +217,7 @@ function FileSec({projectId:pid,mobile:m}){
     if(f.size>10*1024*1024){setMsg("10MB 이하만 가능");setTimeout(()=>setMsg(""),3000);return;}
     setUploading(true);setMsg("업로드중...");
     try{const path=`projects/${pid}/${f.name}`;
-      await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o/uploadType=media&name=${encodeURIComponent(path)}`,
+      await fetch(`https://firebasestorage.googleapis.com/v0/b/${FB_BUCKET}/o?uploadType=media&name=${encodeURIComponent(path)}`,
         {method:"POST",headers:{"Content-Type":f.type||"application/octet-stream"},body:f});
       setMsg("✓ 완료");await loadFiles();}catch(err){setMsg("실패");}
     setUploading(false);e.target.value="";setTimeout(()=>setMsg(""),2000);};
@@ -382,7 +382,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
   const uD=(n,v)=>oc({...p,md:{...(p.md||{}),[n]:v}});
   const tS=k=>oc({...p,st:{...p.st,[k]:!p.st[k]}});
   const[nn,snn]=useState("");const[sa,ssa]=useState(false);
-  const addM Dino=()=>{if(nn.trim()&&!p.mb[nn.trim() ]){oc({...p,mb:{...p.mb,[nn.trim()]:0},md:{...(p.md||{}),[nn.trim()]:0}});snn("");ssa(false);}};
+  const addM=()=>{if(nn.trim()&&!p.mb[nn.trim()]){oc({...p,mb:{...p.mb,[nn.trim()]:0},md:{...(p.md||{}),[nn.trim()]:0}});snn("");ssa(false);}};
   const delM=n=>{const mb={...p.mb};delete mb[n];const md={...(p.md||{})};delete md[n];const mf={...(p.mf||{})};delete mf[n];oc({...p,mb,md,mf});};
   const aR=()=>{const nr=mkR();if(p.addr&&p.addrLat){nr.el=p.addr;nr.elt=p.addrLat;nr.elg=p.addrLng;}oc({...p,routes:[...(p.routes||[]),nr]});};const uR=(i,r)=>{const rs=[...p.routes];rs[i]=r;oc({...p,routes:rs});};
   const rR=i=>{if(p.routes.length<=1)return;oc({...p,routes:p.routes.filter((_,j)=>j!==i)});};
@@ -420,10 +420,10 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
     <thead><tr><th style={{...cL,fontSize:11,textAlign:"left",width:m?60:80}}>이름</th><th style={{...cL,fontSize:11,textAlign:"center",width:50}}>비율</th>
       <th style={{...cL,fontSize:11,textAlign:"center",width:50}}>일수</th><th style={{...cL,fontSize:11,textAlign:"right"}}>금액(만)</th><th style={{...cL,width:26}}></th></tr></thead>
     <tbody>{mn.map(n=>{const amt=c.ma[n]||0;const isFixed=(p.mf||{})[n]>0;return <tr key={n}><td style={{...ce,fontSize:m?11:13,fontWeight:600,whiteSpace:"nowrap"}}>{n}</td>
-      <td style={fI}><NI value={p.mb[n]}onChange={v=>uM(n,v)}style={{textAlign:"center",fontSize:12}}/></td>
-      <td style={fI}><NI value={(p.md||{})[n]}onChange={v=>uD(n,v)}step={0.5}style={{textAlign:"center",fontSize:12}}/></td>
+      <td style={cI}><NI value={p.mb[n]}onChange={v=>uM(n,v)}style={{textAlign:"center",fontSize:12}}/></td>
+      <td style={cI}><NI value={(p.md||{})[n]}onChange={v=>uD(n,v)}step={0.5}style={{textAlign:"center",fontSize:12}}/></td>
       <td style={{...cI,background:isFixed?"#e8f0fe":C.yl}}><NI value={Math.round(amt/10000)||0}onChange={v=>uF(n,v*10000)}style={{textAlign:"right",fontSize:12}}/></td>
-      <td style={{...ce,textAlign:"center",padding:0}}>{(p.mb[n]>0||isFixed)?<button onClick={()=>{uM(n,0);uD(n,0);const mf={...(p.mf||{})};delete mf[n];oc({...p,mb:{...p.mb,[n]:0},md:{...p.md,[n]:0},mf});}}style={{background:"none",border:"none",color:C.ot,cursor:"pointer",fontSize:11,fontWeight:700}}>↺</button>
+      <td style={{...ce,textAlign:"center",padding:0}}>{(p.mb[n]>0||isFixed)?<button onClick={()=>{uM(n,0);uD(n,0);const mf={...(p.mf||{})};delete mf[n];oc({...p,mb:{...p.mb,[n]:0},md:{...(p.md||{}),[n]:0},mf});}}style={{background:"none",border:"none",color:C.ot,cursor:"pointer",fontSize:11,fontWeight:700}}>↺</button>
         :<button onClick={()=>delM(n)}style={{background:"none",border:"none",color:"#ddd",cursor:"pointer",fontSize:14}}>×</button>}</td></tr>})}
     {sa&&<tr style={{background:C.bb}}><td style={{...ce,padding:"4px 4px"}}><input value={nn}onChange={e=>snn(e.target.value)}onKeyDown={e=>{if(e.key==="Enter")addM();if(e.key==="Escape"){ssa(false);snn("");}}}placeholder="이름"autoFocus style={{border:`1px solid ${C.bt}`,borderRadius:3,padding:"3px 4px",fontSize:12,fontWeight:600,outline:"none",width:"100%",boxSizing:"border-box"}}/></td>
       <td colSpan={3}style={{...ce,padding:"4px"}}><Bn onClick={addM}bg={C.bt}small>추가</Bn></td><td style={ce}></td></tr>}
@@ -453,7 +453,7 @@ function PD({project:p,onChange:oc,onBack:ob,onDelete:od,mobile:m,vehicles:vs}){
       <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><span style={{fontSize:11,color:C.td,fontWeight:600}}>수금</span>
         <div style={{background:C.yl,border:`1px solid ${C.bd}`,borderRadius:3}}><NI value={p.col}onChange={v=>u("col",v)}style={{width:110,padding:"4px 8px"}}/></div>
         <span style={{fontSize:11,color:C.td}}>/ {fmt(c.b)}</span></div>
-      {c.b>0&&<div style={{marginTop:6,background:"#eee",borderRadius:99,height:5,overflow:"hidden Sax"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/c.b)*100)}%`,background:(p.col||0)>=c.b?C.gt:C.bt}}/></div>}
+      {c.b>0&&<div style={{marginTop:6,background:"#eee",borderRadius:99,height:5,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${Math.min(100,((p.col||0)/c.b)*100)}%`,background:(p.col||0)>=c.b?C.gt:C.bt}}/></div>}
       <input value={p.memo||""}onChange={e=>u("memo",e.target.value)}placeholder="메모"style={{width:"100%",marginTop:6,border:`1px solid ${C.bd}`,borderRadius:3,padding:"4px 8px",fontSize:12,outline:"none"}}/></div>
     <SchSec sch={p.sch||[]}onChange={v=>u("sch",v)}mobile={m}/>
     <FileSec projectId={p.id}mobile={m}/>
@@ -712,13 +712,13 @@ function FinP({projects:ps, mobile:m}){
         {l:"납부할 부가세(10%)",v:fmt(totalVat),c:"#9333ea",bg:"#faf5ff"},
         {l:"총 세금",v:fmt(totalTx),c:C.rt},
         {l:"총 인건비",v:fmt(totalLb),c:C.gt}
-      ].map(x=><div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}',borderRadius:4,padding:"10px 14px"}}>
+      ].map(x=><div key={x.l} style={{background:x.bg||C.w,border:`1px solid ${C.bd}`,borderRadius:4,padding:"10px 14px"}}>
         <div style={{fontSize:10,color:C.tm,fontWeight:600}}>{x.l}</div>
         <div style={{fontSize:m?14:16,fontWeight:800,color:x.c}}>{x.v}</div></div>)}
     </div>
     
     <div style={{display:"grid",gridTemplateColumns:m?"repeat(2,1fr)":"repeat(4,1fr)",gap:8,marginBottom:16}}>
-      {[{l:"예상수익 합계",v:fmt(estProfit),c:C.gt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
+      {[{l:"예상수익 합계",v:fmt(estProfit),c:estProfit>=0?C.gt:C.rt,bg:estProfit>=0?"#f0faf0":"#fef0f0"},
         {l:`실제수익 합계 (비용입력 ${realCount}곳)`,v:fmt(realProfit),c:realProfit>=0?C.gt:C.rt,bg:realProfit>=0?C.gn:C.rd},
         {l:"경비 절감액 (추가수익)",v:savedAmt>0?`+${fmt(savedAmt)}`:fmt(savedAmt),c:savedAmt>=0?C.bt:C.rt,bg:savedAmt>=0?C.bl:C.rd},
         {l:"실제경비 합계",v:fmt(totalAc),c:"#d97706"}
