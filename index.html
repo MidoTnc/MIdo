@@ -279,8 +279,7 @@ function PayP({projects:ps,pay,onPay,mobile:m}){
   const cp=(n,d)=>{const t3=Math.round(d.ta*0.033),net=d.ta-t3,paid=getPaid(n),remain=net-paid;
     const l=[`[${sm}월 급여명세] ${n}`,"",`총 급여: ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급액: ${fmt(net)}`,`지급액: ${fmt(paid)}`,`잔여: ${fmt(remain)}`,`총 일수: ${d.td}일`,"","── 현장별 ──"];
     d.rows.forEach(r=>l.push(`${r.pj} (${r.cl}) | ${r.d}일 | ${fmt(r.a)}`));l.push("",`합계: ${d.td}일 / ${fmt(d.ta)}`,`3.3% 공제: ${fmt(t3)}`,`실지급: ${fmt(net)}`,`지급: ${fmt(paid)} / 잔여: ${fmt(remain)}`);
-    navigator.clipboard.writeText(l.join("
-")).then(()=>{scn(n);setTimeout(()=>scn(null),2000);});};
+    navigator.clipboard.writeText(l.join("")).then(()=>{scn(n);setTimeout(()=>scn(null),2000);});};
   const gt=Object.values(am).reduce((a,m)=>a+m.ta,0),gt3=Math.round(gt*0.033),gn=gt-gt3;
   const getPaid=(n)=>((pay||{})[mk]||{})[n]||0;
   const setPaid=(n,v)=>onPay({...(pay||{}),[mk]:{...((pay||{})[mk]||{}),[n]:Math.max(0,Math.round(v)||0)}});
